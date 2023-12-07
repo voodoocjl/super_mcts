@@ -162,7 +162,7 @@ if __name__ == '__main__':
     # best_model, report = Scheme(design)
 
     train_space = []
-    filename = 'search_space'
+    filename = 'data/train_space_1'
 
     with open(filename, 'rb') as file:
         train_space = pickle.load(file)
