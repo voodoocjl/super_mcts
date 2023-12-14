@@ -80,8 +80,8 @@ def Scheme(design):
     # MOSI
     train_loader, val_loader, test_loader = MOSIDataLoaders(args)   
     model = QNet(args, design).to(args.device)
-    model.load_state_dict(torch.load('classical_weight'), strict= False)
-    # model.load_state_dict(torch.load('base_weight'), strict= False)    
+    # model.load_state_dict(torch.load('classical_weight'), strict= False)
+    model.load_state_dict(torch.load('base_weight_tq'), strict= False)    
 
     # # MOSEI
     # train_loader, val_loader, test_loader = MOSEIDataLoaders(args)         
@@ -110,15 +110,17 @@ def Scheme(design):
         train_loss_list.append(train_loss)
         val_loss = test(model, val_loader, criterion, args)
         val_loss_list.append(val_loss)
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            print(epoch, train_loss, val_loss, 'saving model')
-            best_model = copy.deepcopy(model)
-        else:
-            print(epoch, train_loss, val_loss)
+        # if val_loss < best_val_loss:
+        #     best_val_loss = val_loss
+        #     print(epoch, train_loss, val_loss, 'saving model')
+        #     best_model = copy.deepcopy(model)
+        # else:
+        #     print(epoch, train_loss, val_loss)
     end = time.time()
     print("Running time: %s seconds" % (end - start))
     
+    best_model = copy.deepcopy(model)
+    best_val_loss = val_loss
     metrics = evaluate(best_model, test_loader, args)
     # display(metrics)
     report = {'train_loss_list': train_loss_list, 'val_loss_list': val_loss_list,
@@ -141,7 +143,7 @@ def search(train_space, index, size):
     while len(train_space) > 0:
         net = train_space[i]
         print('Net', j, ":", net)
-        design = translator(base_code, net)
+        design = translator(net, base_code)
         best_model, report = Scheme(design)
         with open(filename, 'a+', newline='') as res:
             writer = csv.writer(res)

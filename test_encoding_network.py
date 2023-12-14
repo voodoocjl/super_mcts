@@ -51,7 +51,7 @@ model = RNN(8, 16, 2)
 
 Epoch = 3001
 true_label = get_label(mae)
-t_size = 2000
+t_size = 10000
 device = 'cpu'
 
 def data(arch_code_t):

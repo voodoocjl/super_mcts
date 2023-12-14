@@ -84,7 +84,8 @@ def Scheme(design):
         print("using cpu device")
     train_loader, val_loader, test_loader = MOSIDataLoaders(args)
     model = QNet(args, design).to(args.device)
-    model.load_state_dict(torch.load('classical_weight'), strict= False)
+    # model.load_state_dict(torch.load('classical_weight'), strict= False)
+    model.load_state_dict(torch.load('base_weight_tq'), strict= False)
     criterion = nn.L1Loss(reduction='sum')
     # optimizer = optim.Adam([
     #     {'params': model.ClassicalLayer_a.parameters()},
@@ -122,7 +123,7 @@ def Scheme(design):
               'best_val_loss': best_val_loss, 'metrics': metrics}
     ## store classical weights
     # del best_model.QuantumLayer
-    # torch.save(best_model.state_dict(), 'classical_weight')
+    # torch.save(best_model.state_dict(), 'base_weight_tq')
     return best_model, report
 
 
