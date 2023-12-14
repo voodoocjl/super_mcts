@@ -26,31 +26,32 @@ def normalize(x):
     x = (x - torch.mean(x).unsqueeze(-1)) / torch.std(x).unsqueeze(-1)
     return x
 
-def transform_2d(x, method):
+def transform_2d(x, repeat):
     # x = x.reshape(-1, args.n_layers, args.n_qubits)
-    x = x.reshape(-1, 4, 8)
+    x = x.reshape(-1, repeat + 1, 8)
     return x
     
 
 # base_code = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]
 base_code = [5, 1, 2, 3, 4, 5, 6, 0]
 arch_code, mae = [], []
+repeat = 2
 for key in dataset:
     # arch_code.append(gen_arch(eval(key), base_code))
-    arch_code.append(base_code + [0, 0] + eval(key) + [0, 0] + eval(key) + [0, 0] + eval(key))
+    arch_code.append(base_code + ([0, 0] + eval(key)) * repeat)
     mae.append(dataset[key])
 arch_code = torch.from_numpy(np.asarray(arch_code, dtype=np.float32))
 arch_code = normalize(arch_code)
 mae =  torch.from_numpy(np.asarray(mae, dtype=np.float32))
 
-arch_code = transform_2d(arch_code, method='rnn')
+arch_code = transform_2d(arch_code, repeat)
 # model = FCN(8, 2)
 # model = ACN(32, pooling_size=(3, 3), output_size=2)
 model = RNN(8, 16, 2)
 
 Epoch = 3001
 true_label = get_label(mae)
-t_size = 10000
+t_size = 2000
 device = 'cpu'
 
 def data(arch_code_t):
