@@ -84,8 +84,7 @@ def Scheme(design):
         print("using cpu device")
     train_loader, val_loader, test_loader = MOSIDataLoaders(args)
     model = QNet(args, design).to(args.device)
-    # model.load_state_dict(torch.load('classical_weight'), strict= False)
-    model.load_state_dict(torch.load('base_weight'), strict= False)
+    model.load_state_dict(torch.load('classical_weight'), strict= False)
     criterion = nn.L1Loss(reduction='sum')
     # optimizer = optim.Adam([
     #     {'params': model.ClassicalLayer_a.parameters()},
@@ -96,11 +95,10 @@ def Scheme(design):
     #     {'params': model.ProjLayer_t.parameters()},
     #     {'params': model.QuantumLayer.parameters(), 'lr': args.qlr},
     #     {'params': model.Regressor.parameters()}
-    #     ], lr=args.clr)    
+    #     ], lr=args.clr)
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
     train_loss_list, val_loss_list = [], []
     best_val_loss = 10000
-    # print(model.QuantumLayer.q_params_rot)
 
     start = time.time()
     for epoch in range(args.epochs):
@@ -115,8 +113,6 @@ def Scheme(design):
             best_model = copy.deepcopy(model)
         else:
             print(epoch, train_loss, val_loss)
-        
-        # print(model.QuantumLayer.q_params_rot)
     end = time.time()
     print("Running time: %s seconds" % (end - start))
 
@@ -124,16 +120,15 @@ def Scheme(design):
     display(metrics)
     report = {'train_loss_list': train_loss_list, 'val_loss_list': val_loss_list,
               'best_val_loss': best_val_loss, 'metrics': metrics}
-    # store classical weights
+    ## store classical weights
     # del best_model.QuantumLayer
-    # torch.save(best_model.state_dict(), 'base_weight')
+    # torch.save(best_model.state_dict(), 'classical_weight')
     return best_model, report
 
 
 if __name__ == '__main__':
     base_code = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]
     # change_code = None
-    change_code = [5, 0, 0, 5, 2, 1]
-    design = translator(base_code, change_code)
+    change_code = [1, 3, 2, 4, 1, 0]
+    design = translator(change_code)
     best_model, report = Scheme(design)
-    

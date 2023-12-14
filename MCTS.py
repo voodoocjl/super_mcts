@@ -45,7 +45,7 @@ class MCTS:
         self.ITERATION      = 0
         self.MAX_MAEINV     = 0
         self.MAX_SAMPNUM    = 0
-        self.sample_nodes   = []
+        self.sample_nodes   = []        
 
         self.tree_height    = tree_height
 
@@ -187,21 +187,7 @@ class MCTS:
                     writer = csv.writer(res)
 
                     metrics = report['mae']
-                    writer.writerow([len(self.samples), job_str, sample_node, metrics])
-                # print("\nresults of current model saved")
-                # save all models and reports
-                # torch.save(best_model.state_dict(), 'models/model_weights_'+str(len(self.samples))+'.pth')
-                # with open('reports/report_'+str(len(self.samples)), 'wb') as file:
-                #     pickle.dump(report, file)
-                # if maeinv > self.MAX_MAEINV:
-                #     self.MAX_MAEINV = maeinv
-                #     self.MAX_SAMPNUM = len(self.samples)
-                #     torch.save(best_model.state_dict(), 'model_weights.pth')
-                #     with open('report', 'wb') as file:
-                #         pickle.dump(report, file)
-                #     print("better model saved")
-                # print("current min_mae: {}({} sample)".format(1/self.MAX_MAEINV, num2ord(self.MAX_SAMPNUM)))
-                # print("current number of samples: {}".format(len(self.samples)))
+                    writer.writerow([len(self.samples), job_str, sample_node, metrics])                
 
             except Exception as e:
                 print(e)
@@ -313,7 +299,7 @@ if __name__ == '__main__':
     print("\nthe length of architecture codes:", arch_code_len)
     print("total architectures:", len(search_space))
 
-    with open('data/mosi_test', 'rb') as file:
+    with open('data/mosi_dataset', 'rb') as file:
         dataset = pickle.load(file)
     # with open('data/chemistry_validation', 'rb') as file:
     #     validation = pickle.load(file)

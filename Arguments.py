@@ -17,3 +17,5 @@ class Arguments:
         self.batch_size = 32
         self.test_batch_size = 673
         self.sampling = 5
+        self.n_layers = 5
+        self.base_code = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]

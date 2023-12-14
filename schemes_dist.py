@@ -80,8 +80,8 @@ def Scheme(design):
     # MOSI
     train_loader, val_loader, test_loader = MOSIDataLoaders(args)   
     model = QNet(args, design).to(args.device)
-    # model.load_state_dict(torch.load('classical_weight'), strict= False)
-    model.load_state_dict(torch.load('base_weight'), strict= False)    
+    model.load_state_dict(torch.load('classical_weight'), strict= False)
+    # model.load_state_dict(torch.load('base_weight'), strict= False)    
 
     # # MOSEI
     # train_loader, val_loader, test_loader = MOSEIDataLoaders(args)         
@@ -167,16 +167,16 @@ if __name__ == '__main__':
     with open(filename, 'rb') as file:
         train_space = pickle.load(file)
     
-    num_processes = 10
+    num_processes = 2
     size = int(len(train_space) / num_processes)
     space = []
     for i in range(num_processes):
         space.append(train_space[i*size : (i+1)*size])
     args = Arguments()
-    if torch.cuda.is_available() and args.device == 'cuda':
-        print("using cuda device")
-    else:
-        print("using cpu device")
+    # if torch.cuda.is_available() and args.device == 'cuda':
+    #     print("using cuda device")
+    # else:
+    #     print("using cpu device")
     with mp.Pool(processes = num_processes) as pool:        
         pool.starmap(search, [(space[i], i, size) for i in range(num_processes)])
     

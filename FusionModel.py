@@ -2,12 +2,14 @@ import copy
 import pennylane as qml
 import torch
 import torch.nn as nn
+import torchquantum as tq
+import torchquantum.functional as tqf
 from math import pi
 from Arguments import Arguments
 args = Arguments()
 
 
-def gen_arch(base_code, change_code):
+def gen_arch( change_code, base_code = None):
     arch_code = copy.copy(base_code)
     if change_code is not None:
         q = change_code[0]  # the qubit changed
@@ -16,9 +18,9 @@ def gen_arch(base_code, change_code):
     return arch_code
 
 
-def translator(base_code, change_code = None):
+def translator(change_code, base_code = args.base_code):
     assert type(base_code) == type([])
-    net = gen_arch(base_code, change_code)
+    net = gen_arch(change_code, base_code)
     
     updated_design = {}
     if change_code is None:
@@ -27,7 +29,7 @@ def translator(base_code, change_code = None):
         updated_design['change_qubit'] = change_code[0]
 
     # num of layers
-    updated_design['n_layers'] = 5
+    updated_design['n_layers'] = args.n_layers
 
     for layer in range(updated_design['n_layers']):
         # categories of single-qubit parametric gates
@@ -67,39 +69,81 @@ def quantum_net(q_input_features_flat, q_weights_rot, q_weights_enta, **kwargs):
 
     return [qml.expval(qml.PauliZ(i)) for i in range(args.n_qubits)]
 
-   
+
 class QuantumLayer(nn.Module):
     def __init__(self, arguments, design):
         super(QuantumLayer, self).__init__()
         self.args = arguments
         self.design = design
-        self.q_params_rot = nn.Parameter(pi * torch.rand(self.args.n_qubits, self.design['n_layers']))
-        self.q_params_enta = nn.Parameter(pi * torch.rand(self.args.n_qubits, self.design['n_layers']))
+        self.q_params_rot, self.q_params_enta = nn.ParameterList(), nn.ParameterList()
+        for i in range(self.args.n_qubits):
+            if self.design['change_qubit'] is None:
+                rot_trainable = True
+                enta_trainable = True
+            elif i == self.design['change_qubit']:
+                rot_trainable = False
+                enta_trainable = True
+            else:
+                rot_trainable = False
+                enta_trainable = False
+            self.q_params_rot.append(nn.Parameter(pi * torch.rand(self.design['n_layers']), requires_grad=rot_trainable))
+            self.q_params_enta.append(nn.Parameter(pi * torch.rand(self.design['n_layers']), requires_grad=enta_trainable))
 
     def forward(self, input_features):
         q_out = torch.Tensor(0, self.args.n_qubits)
         q_out = q_out.to(self.args.device)
-        if self.design['change_qubit'] is None:
-            q_params_rot = self.q_params_rot
-            q_params_enta = self.q_params_enta
-        else:
-            q_params_rot = torch.zeros_like(self.q_params_rot)
-            q_params_enta = torch.zeros_like(self.q_params_enta)            
-            for i in range(self.args.n_qubits):
-                if i != self.design['change_qubit']:
-                    q_params_rot[i] = self.q_params_rot[i].detach()
-                    q_params_enta[i] = self.q_params_enta[i].detach()
-                else:
-                    q_params_rot[i] = self.q_params_rot[i]
-                    q_params_enta[i] = self.q_params_enta[i]        
-            
         for elem in input_features:
-            q_out_elem = quantum_net(elem, q_params_rot, q_params_enta, design=self.design).float().unsqueeze(0)
+            q_out_elem = quantum_net(elem, self.q_params_rot, self.q_params_enta, design=self.design).float().unsqueeze(0)
             q_out = torch.cat((q_out, q_out_elem))
         return q_out
     
     # qml.drawer.use_style('black_white')
     # fig, ax = qml.draw_mpl(quantum_net)(elem, self.q_params_rot, self.q_params_enta, design=self.design)
+
+
+class TQLayer(tq.QuantumModule):
+    def __init__(self, arguments, design):
+        super().__init__()
+        self.args = arguments
+        self.design = design
+        self.n_wires = self.args.n_qubits
+        self.rots, self.entas = tq.QuantumModuleList(), tq.QuantumModuleList()
+        for layer in range(self.design['n_layers']):
+            for q in range(self.n_wires):
+                # 'trainable' option
+                if self.design['change_qubit'] is None:
+                    rot_trainable = True
+                    enta_trainable = True
+                elif q == self.design['change_qubit']:
+                    rot_trainable = False
+                    enta_trainable = True
+                else:
+                    rot_trainable = False
+                    enta_trainable = False
+                # single-qubit parametric gates
+                if self.design['rot' + str(layer) + str(q)] == 'Rx':
+                    self.rots.append(tq.RX(has_params=True, trainable=rot_trainable))
+                else:
+                    self.rots.append(tq.RY(has_params=True, trainable=rot_trainable))
+                # entangled gates
+                if self.design['enta' + str(layer) + str(q)][0] == 'IsingXX':
+                    self.entas.append(tq.RXX(has_params=True, trainable=enta_trainable))
+                else:
+                    self.entas.append(tq.RZZ(has_params=True, trainable=enta_trainable))
+        self.measure = tq.MeasureAll(tq.PauliZ)
+
+    def forward(self, x):
+        bsz = x.shape[0]
+        x = x.reshape(bsz, self.n_wires, 3)
+        qdev = tq.QuantumDevice(n_wires=self.n_wires, bsz=bsz, device=x.device)
+        for layer in range(self.design['n_layers']):
+            for i in range(self.n_wires):
+                tqf.rot(qdev, wires=i, params=x[:, i])
+            for j in range(self.n_wires):
+                self.rots[j + layer * self.n_wires](qdev, wires=j)
+                if self.design['enta' + str(layer) + str(j)][1][0] != self.design['enta' + str(layer) + str(j)][1][1]:
+                    self.entas[j + layer * self.n_wires](qdev, wires=self.design['enta' + str(layer) + str(j)][1])
+        return self.measure(qdev)
 
 
 class QNet(nn.Module):
@@ -113,11 +157,12 @@ class QNet(nn.Module):
         self.ProjLayer_a = nn.Linear(self.args.a_hidsize, self.args.a_hidsize)
         self.ProjLayer_v = nn.Linear(self.args.v_hidsize, self.args.v_hidsize)
         self.ProjLayer_t = nn.Linear(self.args.t_hidsize, self.args.t_hidsize)
-        self.QuantumLayer = QuantumLayer(self.args, self.design)
+        # self.QuantumLayer = QuantumLayer(self.args, self.design)
+        self.QuantumLayer = TQLayer(self.args, self.design)
         self.Regressor = nn.Linear(self.args.n_qubits, 1)
-        # for name, param in self.named_parameters():
-        #     if "QuantumLayer" not in name:
-        #         param.requires_grad = False
+        for name, param in self.named_parameters():
+            if "QuantumLayer" not in name:
+                param.requires_grad = False
 
     def forward(self, x_a, x_v, x_t):
         x_a = torch.permute(x_a, (1, 0, 2))

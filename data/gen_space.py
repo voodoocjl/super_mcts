@@ -7,7 +7,7 @@ import os, json
 # print(len(search_space))
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-dataset_file = os.path.join(dir_path, 'mosi_test')
+dataset_file = os.path.join(dir_path, 'mosi_dataset')
 
 with open(dataset_file, 'rb') as file:
     dataset = pickle.load(file)

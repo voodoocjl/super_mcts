@@ -6,7 +6,8 @@ import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import accuracy_score
-from Network import Linear, Mlp, Attention, change_code, transform_attention
+from Network import Attention, RNN
+from FusionModel import translator
 
 
 torch.cuda.is_available = lambda : False
@@ -60,11 +61,11 @@ class Classifier:
             nets_maeinv.append(v)
         self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32).reshape(-1, self.input_dim))
 
-        # linear, mlp
-        # self.nets = change_code(self.nets)
+        # RNN
+        self.nets = translator(self.nets)
 
-        # attention
-        self.nets = transform_attention(self.nets, [1, 5])   # 5 layers
+        # # attention
+        # self.nets = transform_attention(self.nets, [1, 5])   # 5 layers
 
         self.maeinv = torch.from_numpy(np.asarray(nets_maeinv, dtype=np.float32).reshape(-1, 1))
         self.labels = get_label(self.maeinv, mean)
