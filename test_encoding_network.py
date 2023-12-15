@@ -27,7 +27,7 @@ def normalize(x):
     return x
 
 def transform_2d(x, repeat):
-    # x = x.reshape(-1, args.n_layers, args.n_qubits)
+    # x = x.reshape(-1, 5, 7)
     x = x.reshape(-1, repeat + 1, 8)
     return x
     
@@ -51,7 +51,7 @@ model = RNN(8, 16, 2)
 
 Epoch = 3001
 true_label = get_label(mae)
-t_size = 10000
+t_size = 5000
 device = 'cpu'
 
 def data(arch_code_t):
@@ -60,7 +60,7 @@ def data(arch_code_t):
     label = get_label(mae_train).to(device)
     p_label = 2 * label - 1
     
-    dataset = TensorDataset(arch_code_train, p_label)
+    dataset = TensorDataset(arch_code_train, mae_train, p_label)
     dataloader = DataLoader(dataset, batch_size=128, shuffle=True)
 
     arch_code_test = arch_code_t[t_size:].to(device)
@@ -88,12 +88,12 @@ def train(model):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
    
     for epoch in range(1, Epoch):
-        for x, y in dataloader:
+        for x, y, z in dataloader:
             model.train()
             pred = model(x) 
-
-            loss_e = loss_fn(pred[:, -1], y)             
-            train_loss = loss_e #+ 0.1 * loss_s            
+            loss_s = loss_fn(pred[:, 0], y)  
+            loss_e = loss_fn(pred[:, -1], z)             
+            train_loss = loss_e + loss_s            
             optimizer.zero_grad()
             train_loss.backward()
             optimizer.step()        

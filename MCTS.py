@@ -295,8 +295,9 @@ if __name__ == '__main__':
 
     with open('search_space_pretrain', 'rb') as file:
         search_space = pickle.load(file)
-    arch_code_len = len(search_space[0])
-    print("\nthe length of architecture codes:", arch_code_len)
+    
+    arch_code_len = 8 
+    print("\nthe length of base architecture codes:", arch_code_len)
     print("total architectures:", len(search_space))
 
     with open('data/mosi_dataset', 'rb') as file:

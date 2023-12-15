@@ -36,7 +36,7 @@ class Classifier:
         self.node_layer       = ceil(log2(node_id + 2) - 1)
         # self.model            = Linear(self.input_dim_2d, 2)
         # self.model            = Mlp(self.input_dim_2d, 6, 2)
-        self.model            = Attention(3, 2)
+        self.model            = RNN(input_dim, 16, 2)
         if torch.cuda.is_available():
             self.model.cuda()
         self.loss_fn          = nn.MSELoss()
@@ -49,21 +49,25 @@ class Classifier:
         self.maeinv           = None
         self.labels           = None
         self.mean             = 0
+        self.base_code        = [5, 1, 2, 3, 4, 5, 6, 0]
 
 
     def update_samples(self, latest_samples, mean):
         assert type(latest_samples) == type(self.samples)
         sampled_nets = []
         nets_maeinv  = []
+        repeat = 2
         for k, v in latest_samples.items():
             net = json.loads(k)
+
+            # RNN            
+            net = self.base_code + ([0, 0] + net) * repeat
+
             sampled_nets.append(net)
             nets_maeinv.append(v)
-        self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32).reshape(-1, self.input_dim))
+        self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32).reshape(-1, repeat+1, self.input_dim))
 
-        # RNN
-        self.nets = translator(self.nets)
-
+        
         # # attention
         # self.nets = transform_attention(self.nets, [1, 5])   # 5 layers
 
@@ -87,7 +91,7 @@ class Classifier:
             return
         # linear, mlp
         nets = self.nets
-        labels = self.labels
+        labels = 2 * self.labels - 1
         maeinv = self.maeinv
         train_data = TensorDataset(nets, maeinv, labels)
         train_loader = DataLoader(train_data, batch_size=128, shuffle=True)
@@ -96,8 +100,7 @@ class Classifier:
                 # clear grads
                 self.optimizer.zero_grad()
                 # forward to get predicted values
-                outputs = self.model(x)
-                # loss_s = self.loss_fn(outputs[:, :6], nets[:, 6:])
+                outputs = self.model(x)                
                 loss_mae = self.loss_fn(outputs[:, 0], y.reshape(-1))
                 loss_t = self.loss_fn(outputs[:, -1], z.reshape(-1))
                 loss = loss_mae + loss_t
@@ -107,36 +110,11 @@ class Classifier:
 
         # training accuracy
         pred = self.model(nets).cpu()
-        # split by maeinv
-        # pred_label = (pred[:, -1] > self.sample_mean()).float()
-        # true_label = (maeinv.reshape(-1) > self.sample_mean()).float()
-        # split by label
+        
         pred_label = (pred[:, -1] > 0.5).float()
         true_label = self.labels.reshape(-1).cpu()
         acc = accuracy_score(true_label.numpy(), pred_label.numpy())
-        self.training_accuracy.append(acc)
-
-
-    # def predict(self, remaining):
-    #     assert type(remaining) == type({})
-    #     remaining_archs = []
-    #     for k, v in remaining.items():
-    #         net = json.loads(k)
-    #         remaining_archs.append(net)
-    #     remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32).reshape(-1, self.input_dim))
-    #     if torch.cuda.is_available():
-    #         remaining_archs = remaining_archs.cuda()
-    #     outputs = self.model(remaining_archs)[:, -1].reshape(-1, 1)
-    #     if torch.cuda.is_available():
-    #         remaining_archs = remaining_archs.cpu()
-    #         outputs         = outputs.cpu()
-    #     result = {}
-    #     for k in range(0, len(remaining_archs)):
-    #         arch = remaining_archs[k].detach().numpy().astype(np.int32)
-    #         arch_str = json.dumps(arch.tolist())
-    #         result[arch_str] = outputs[k].detach().numpy().tolist()[0]
-    #     assert len(result) == len(remaining)
-    #     return result
+        self.training_accuracy.append(acc)    
 
 
     def predict(self, remaining):
