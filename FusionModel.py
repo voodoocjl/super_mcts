@@ -43,8 +43,6 @@ def translator(change_code, base_code = args.base_code):
         updated_design['total_gates'] = updated_design['n_layers'] * args.n_qubits
     return updated_design
 
-
-qml.disable_return()
 dev = qml.device("lightning.qubit", wires=args.n_qubits)
 @qml.qnode(dev, interface="torch", diff_method="adjoint")
 def quantum_net(q_input_features_flat, q_weights_rot, q_weights_enta, **kwargs):
@@ -93,7 +91,8 @@ class QuantumLayer(nn.Module):
         q_out = torch.Tensor(0, self.args.n_qubits)
         q_out = q_out.to(self.args.device)
         for elem in input_features:
-            q_out_elem = quantum_net(elem, self.q_params_rot, self.q_params_enta, design=self.design).float().unsqueeze(0)
+            output = quantum_net(elem, self.q_params_rot, self.q_params_enta, design=self.design)
+            q_out_elem = torch.stack([output[i] for i in range(len(output))]).float().unsqueeze(0)
             q_out = torch.cat((q_out, q_out_elem))
         return q_out
     
@@ -157,8 +156,8 @@ class QNet(nn.Module):
         self.ProjLayer_a = nn.Linear(self.args.a_hidsize, self.args.a_hidsize)
         self.ProjLayer_v = nn.Linear(self.args.v_hidsize, self.args.v_hidsize)
         self.ProjLayer_t = nn.Linear(self.args.t_hidsize, self.args.t_hidsize)
-        # self.QuantumLayer = QuantumLayer(self.args, self.design)
-        self.QuantumLayer = TQLayer(self.args, self.design)
+        self.QuantumLayer = QuantumLayer(self.args, self.design)
+        # self.QuantumLayer = TQLayer(self.args, self.design)
         self.Regressor = nn.Linear(self.args.n_qubits, 1)
         for name, param in self.named_parameters():
             if "QuantumLayer" not in name:
