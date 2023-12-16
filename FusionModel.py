@@ -45,9 +45,11 @@ def translator(change_code, base_code = args.base_code):
 
 dev = qml.device("lightning.qubit", wires=args.n_qubits)
 @qml.qnode(dev, interface="torch", diff_method="adjoint")
-def quantum_net(q_input_features_flat, q_weights_rot, q_weights_enta, **kwargs):
+def quantum_net(q_input_features, q_weights_rot, q_weights_enta, **kwargs):
     current_design = kwargs['design']
-    q_input_features = q_input_features_flat.reshape(args.n_qubits, 3)
+    q_input_features = torch.transpose(q_input_features, 0, 1)  #(n_qubits, batches)
+    q_input_features = q_input_features.reshape(args.n_qubits, 3, -1)  # (7, 3, 32)
+     
     for layer in range(current_design['n_layers']):
         # data reuploading
         for i in range(args.n_qubits):
@@ -87,17 +89,13 @@ class QuantumLayer(nn.Module):
             self.q_params_rot.append(nn.Parameter(pi * torch.rand(self.design['n_layers']), requires_grad=rot_trainable))
             self.q_params_enta.append(nn.Parameter(pi * torch.rand(self.design['n_layers']), requires_grad=enta_trainable))
 
-    def forward(self, input_features):
-        q_out = torch.Tensor(0, self.args.n_qubits)
-        q_out = q_out.to(self.args.device)
-        for elem in input_features:
-            output = quantum_net(elem, self.q_params_rot, self.q_params_enta, design=self.design)
-            q_out_elem = torch.stack([output[i] for i in range(len(output))]).float().unsqueeze(0)
-            q_out = torch.cat((q_out, q_out_elem))
-        return q_out
-    
-    # qml.drawer.use_style('black_white')
-    # fig, ax = qml.draw_mpl(quantum_net)(elem, self.q_params_rot, self.q_params_enta, design=self.design)
+    def forward(self, input_features):        
+        output = quantum_net(input_features, self.q_params_rot, self.q_params_enta, design=self.design)
+        q_out = torch.stack([output[i] for i in range(len(output))]).float()        # (n_qubits, batch)
+        if len(q_out.shape) == 1:
+            q_out = q_out.unsqueeze(1)
+        q_out = torch.transpose(q_out, 0, 1)    #(batch, n_qubits)
+        return q_out    
 
 
 class TQLayer(tq.QuantumModule):

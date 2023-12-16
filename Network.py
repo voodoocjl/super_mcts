@@ -76,7 +76,8 @@ class Attention(nn.Module):
 
 
 def transform_2d(x, method):
-    x = x.reshape(-1, args.n_layers, args.n_qubits)
+    # x = x.reshape(-1, args.n_layers, args.n_qubits)   
+    x = x.reshape(-1, 2, args.n_qubits+1)
     if method == 'conv':
         return x.unsqueeze(1)
     elif method == 'rnn':

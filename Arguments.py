@@ -13,7 +13,7 @@ class Arguments:
         self.device     = 'cpu'
         self.clr        = 0.005
         self.qlr        = 0.01
-        self.epochs     = 3
+        self.epochs     = 2
         self.batch_size = 32
         self.test_batch_size = 673
         self.sampling = 5
