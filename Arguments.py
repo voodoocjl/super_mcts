@@ -10,7 +10,7 @@ class Arguments:
         # self.a_projsize = 6
         # self.v_projsize = 3
         # self.t_projsize = 12
-        self.device     = 'cpu'
+        self.device     = 'cpu'        
         self.clr        = 0.005
         self.qlr        = 0.01
         self.epochs     = 2
@@ -18,4 +18,6 @@ class Arguments:
         self.test_batch_size = 673
         self.sampling = 5
         self.n_layers = 5
-        self.base_code = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]
+        self.base_code = [5, 1, 2, 3, 4, 5, 6, 0]
+        # self.backend    = 'pennylane'
+        self.backend    = 'tq'

@@ -9,24 +9,28 @@ from Arguments import Arguments
 args = Arguments()
 
 
-def gen_arch( change_code, base_code = None):
-    arch_code = copy.copy(base_code)
+def gen_arch( change_code, base_code = args.base_code):    
+    arch_code = base_code[1:] * base_code[0]
+    if type(change_code[0]) != type([]):
+        change_code = [change_code]
+    change_qubit = change_code[-1][0]
     if change_code is not None:
-        q = change_code[0]  # the qubit changed
-        for i, t in enumerate(change_code[1:]):
-            arch_code[q + i * args.n_qubits] = t
+        for i in range(len(change_code)):
+            q = change_code[i][0]  # the qubit changed
+            for i, t in enumerate(change_code[i][1:]):
+                arch_code[q + i * args.n_qubits] = t
     return arch_code
 
 
 def translator(change_code, base_code = args.base_code):
-    assert type(base_code) == type([])
-    net = gen_arch(change_code, base_code)
-    
+    if type(change_code[0]) != type([]):
+        change_code = [change_code]
+    net = gen_arch(change_code, base_code)    
     updated_design = {}
     if change_code is None:
         updated_design['change_qubit'] = None
     else:
-        updated_design['change_qubit'] = change_code[0]
+        updated_design['change_qubit'] = change_code[-1][0]
 
     # num of layers
     updated_design['n_layers'] = args.n_layers
@@ -154,8 +158,10 @@ class QNet(nn.Module):
         self.ProjLayer_a = nn.Linear(self.args.a_hidsize, self.args.a_hidsize)
         self.ProjLayer_v = nn.Linear(self.args.v_hidsize, self.args.v_hidsize)
         self.ProjLayer_t = nn.Linear(self.args.t_hidsize, self.args.t_hidsize)
-        self.QuantumLayer = QuantumLayer(self.args, self.design)
-        # self.QuantumLayer = TQLayer(self.args, self.design)
+        if args.backend == 'pennylane':
+            self.QuantumLayer = QuantumLayer(self.args, self.design)
+        else:
+            self.QuantumLayer = TQLayer(self.args, self.design)
         self.Regressor = nn.Linear(self.args.n_qubits, 1)
         for name, param in self.named_parameters():
             if "QuantumLayer" not in name:

@@ -48,8 +48,7 @@ class Classifier:
         self.nets             = None
         self.maeinv           = None
         self.labels           = None
-        self.mean             = 0
-        self.base_code        = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]
+        self.mean             = 0        
         # self.repeat           = 2
 
 
@@ -60,7 +59,7 @@ class Classifier:
         for k, v in latest_samples.items():
             net = json.loads(k)
             # RNN            
-            net = gen_arch(net, self.base_code)
+            net = gen_arch(net)
 
             sampled_nets.append(net)
             nets_maeinv.append(v)
@@ -122,7 +121,7 @@ class Classifier:
         for k, v in remaining.items():
             net = json.loads(k)
             # RNN            
-            net = gen_arch(net, self.base_code)
+            net = gen_arch(net)
             remaining_archs.append(net)
         remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32).reshape(len(remaining_archs), -1, self.input_dim-1))
         if torch.cuda.is_available():

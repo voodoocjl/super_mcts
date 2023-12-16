@@ -131,5 +131,6 @@ if __name__ == '__main__':
     base_code = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]
     # change_code = None
     change_code = [5, 0, 0, 5, 2, 1]
+    change_code = [[3, 4, 4, 4, 4, 4], [5, 0, 0, 5, 2, 1]]
     design = translator(change_code)
     best_model, report = Scheme(design)
