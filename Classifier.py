@@ -7,7 +7,7 @@ from torch import optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import accuracy_score
 from Network import Attention, RNN, transform_2d
-from FusionModel import translator
+from FusionModel import translator, gen_arch
 
 
 torch.cuda.is_available = lambda : False
@@ -36,7 +36,7 @@ class Classifier:
         self.node_layer       = ceil(log2(node_id + 2) - 1)
         # self.model            = Linear(self.input_dim_2d, 2)
         # self.model            = Mlp(self.input_dim_2d, 6, 2)
-        self.model            = RNN(input_dim, 16, 2)
+        self.model            = RNN(input_dim-1, 16, 2)
         if torch.cuda.is_available():
             self.model.cuda()
         self.loss_fn          = nn.MSELoss()
@@ -49,8 +49,8 @@ class Classifier:
         self.maeinv           = None
         self.labels           = None
         self.mean             = 0
-        self.base_code        = [5, 1, 2, 3, 4, 5, 6, 0]
-        self.repeat           = 2
+        self.base_code        = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]
+        # self.repeat           = 2
 
 
     def update_samples(self, latest_samples, mean):
@@ -60,11 +60,11 @@ class Classifier:
         for k, v in latest_samples.items():
             net = json.loads(k)
             # RNN            
-            net = self.base_code + ([0, 0] + net) * self.repeat
+            net = gen_arch(net, self.base_code)
 
             sampled_nets.append(net)
             nets_maeinv.append(v)
-        self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32).reshape(-1, self.repeat+1, self.input_dim))
+        self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32).reshape(len(sampled_nets), -1, self.input_dim-1))
 
         
         # # attention
@@ -122,9 +122,9 @@ class Classifier:
         for k, v in remaining.items():
             net = json.loads(k)
             # RNN            
-            net = self.base_code + ([0, 0] + net) * self.repeat
+            net = gen_arch(net, self.base_code)
             remaining_archs.append(net)
-        remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32).reshape(-1, self.repeat+1, self.input_dim))
+        remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32).reshape(len(remaining_archs), -1, self.input_dim-1))
         if torch.cuda.is_available():
             remaining_archs = remaining_archs.cuda()
         # outputs = self.model(change_code(remaining_archs))
