@@ -175,7 +175,7 @@ class MCTS:
                     report = {'mae': dataset.get(job_str)}
                     # print(report)
                 else:
-                    report = Scheme(design)
+                    _, report = Scheme(design)
 
                 maeinv = -1 * report['mae']
 
@@ -186,7 +186,7 @@ class MCTS:
                 with open('results.csv', 'a+', newline='') as res:
                     writer = csv.writer(res)
 
-                    metrics = report['mae']
+                    metrics = -1 * maeinv
                     writer.writerow([len(self.samples), job_str, sample_node, metrics])                
 
             except Exception as e:
@@ -203,9 +203,14 @@ class MCTS:
             self.reset_node_data()
 
         while len(self.search_space) > 0 and self.ITERATION < 50:
+            # save current state
             if self.ITERATION > 0:
                 self.dump_all_states(len(self.samples))
             print("\niteration:", self.ITERATION)
+
+            if self.ITERATION == 1:
+                best_change = max(self.samples, key=self.samples.get)
+                self.TASK_QUEUE = [[eval(best_change), self.TASK_QUEUE[i]] for i in range(len(self.TASK_QUEUE))]
 
             # evaluate jobs:
             print("\nevaluate jobs...")
