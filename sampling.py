@@ -129,7 +129,7 @@ def sampling_node(agent, nodes, dataset, iteration, verbose = None):
             design = translator(sampled_arch)
             # print("translated to:\n{}".format(design))
             if str(sampled_arch) in dataset:
-                report = {'energy': dataset.get(str(sampled_arch))}
+                report = {'mae': dataset.get(str(sampled_arch))}
             else:
                 _, report = Scheme(design)
             if verbose:

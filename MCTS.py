@@ -301,14 +301,14 @@ if __name__ == '__main__':
     np.random.seed(42)
     torch.random.manual_seed(42)
 
-    with open('search_space_tq', 'rb') as file:
+    with open('search_space_pretrain', 'rb') as file:
         search_space = pickle.load(file)
     
     arch_code_len = 8 
     print("\nthe length of base architecture codes:", arch_code_len)
     print("total architectures:", len(search_space))
 
-    with open('data/mosi_dataset_tq', 'rb') as file:
+    with open('data/mosi_dataset', 'rb') as file:
         dataset = pickle.load(file)
     # with open('data/chemistry_validation', 'rb') as file:
     #     validation = pickle.load(file)
