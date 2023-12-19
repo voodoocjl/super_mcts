@@ -38,7 +38,7 @@ class Node:
         self.layer        = ceil(log2(self.id + 2) - 1)
         self.classifier    = Classifier({}, self.ARCH_CODE_LEN, self.id)
 
-        self.base     = [] #[[6, 1, 1, 2, 1, 2]]
+        self.base     = [[6, 1, 1, 2, 1, 2]]
 
         # insert current node into the kids of parent
         if parent is not None:
