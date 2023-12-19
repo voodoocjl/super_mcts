@@ -38,6 +38,8 @@ class Node:
         self.layer        = ceil(log2(self.id + 2) - 1)
         self.classifier    = Classifier({}, self.ARCH_CODE_LEN, self.id)
 
+        self.base     = [] #[[6, 1, 1, 2, 1, 2]]
+
         # insert current node into the kids of parent
         if parent is not None:
             self.parent.kids.append(self)
@@ -56,7 +58,10 @@ class Node:
 
     def put_in_bag(self, net, maeinv):
         assert type(net) == type([])
-        # assert type(maeinv) == type(float(0.1))
+        if len(self.base) != 0 and type(net[0]) != type([]):
+            net_ = self.base.copy()
+            net_.append(net)
+            net = net_
         net_k = json.dumps(net)
         self.bag[net_k] = (maeinv)
 

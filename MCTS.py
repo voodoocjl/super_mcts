@@ -208,9 +208,10 @@ class MCTS:
                 self.dump_all_states(len(self.samples))
             print("\niteration:", self.ITERATION)
 
-            if self.ITERATION == 1:
-                best_change = max(self.samples, key=self.samples.get)
-                self.TASK_QUEUE = [[eval(best_change), self.TASK_QUEUE[i]] for i in range(len(self.TASK_QUEUE))]
+            # if self.ITERATION == 0:
+            #     # best_change = max(self.samples, key=self.samples.get)
+            #     best_change = '[6, 1, 1, 2, 1, 2]'
+            #     self.TASK_QUEUE = [[eval(best_change), self.TASK_QUEUE[i]] for i in range(len(self.TASK_QUEUE))]
 
             # evaluate jobs:
             print("\nevaluate jobs...")
@@ -259,20 +260,19 @@ class MCTS:
             self.print_tree()
             # sampling nodes
             nodes = [0, 1, 2, 3, 8, 12, 13, 14, 15]
+            # nodes = [0, 3, 12, 15]
             sampling_node(self, nodes, dataset, self.ITERATION)
 
             for i in range(0, 50):
                 # select
                 target_bin   = self.select()
-                sampled_arch = target_bin.sample_arch()
+                sampled_arch = target_bin.sample_arch()                
                 # NOTED: the sampled arch can be None
-                if sampled_arch is not None:
-                # push the arch into task queue
-                    # print("\nselected node " + str(target_bin.id-15) + " in leaf layer")
-                    # print("sampled arch:", sampled_arch)
+                if sampled_arch is not None:                    
+                    # push the arch into task queue
                     if json.dumps(sampled_arch) not in self.DISPATCHED_JOB:
                         self.TASK_QUEUE.append(sampled_arch)
-                        self.search_space.remove(sampled_arch)
+                        # self.search_space.remove(sampled_arch)
                         self.sample_nodes.append(target_bin.id-15)
                 else:
                     # trail 1: pick a network from the left leaf
@@ -280,15 +280,18 @@ class MCTS:
                         if n.is_leaf == True:
                             sampled_arch = n.sample_arch()
                             if sampled_arch is not None:
-                                print("\nselected node" + str(n.id-15) + " in leaf layer")
+                                print("\nselected node" + str(n.id-15) + " in leaf layer")                                
                                 # print("sampled arch:", sampled_arch)
                                 if json.dumps(sampled_arch) not in self.DISPATCHED_JOB:
                                     self.TASK_QUEUE.append(sampled_arch)
-                                    self.search_space.remove(sampled_arch)
+                                    # self.search_space.remove(sampled_arch)
                                     self.sample_nodes.append(n.id-15)
                                     break
                             else:
                                 continue
+                if type(sampled_arch[0]) == type([]):
+                    sampled_arch = sampled_arch[-1]
+                self.search_space.remove(sampled_arch)
             self.ITERATION += 1
 
 
@@ -298,14 +301,14 @@ if __name__ == '__main__':
     np.random.seed(42)
     torch.random.manual_seed(42)
 
-    with open('search_space_pretrain', 'rb') as file:
+    with open('search_space_tq', 'rb') as file:
         search_space = pickle.load(file)
     
     arch_code_len = 8 
     print("\nthe length of base architecture codes:", arch_code_len)
     print("total architectures:", len(search_space))
 
-    with open('data/mosi_dataset', 'rb') as file:
+    with open('data/mosi_dataset_tq', 'rb') as file:
         dataset = pickle.load(file)
     # with open('data/chemistry_validation', 'rb') as file:
     #     validation = pickle.load(file)
@@ -326,7 +329,7 @@ if __name__ == '__main__':
     if files:
         files.sort(key=lambda x: os.path.getmtime(os.path.join(state_path, x)))
         node_path = os.path.join(state_path, files[-1])
-        # node_path = 'states/mcts_agent_4000'
+        # node_path = 'states/mcts_agent_200'
         with open(node_path, 'rb') as json_data:
             agent = pickle.load(json_data)
         print("\nresume searching,", agent.ITERATION, "iterations completed before")

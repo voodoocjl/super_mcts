@@ -2,7 +2,7 @@ import csv
 import pickle
 import os
 
-name = 'mosi_dataset'
+name = 'mosi_dataset_tq'
 dir_path = os.path.dirname(os.path.realpath(__file__))
 files = os.listdir(dir_path)
 dataset_file = os.path.join(dir_path, name)

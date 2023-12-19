@@ -179,5 +179,6 @@ train_space_4
 data/train_space_5
 data/mosei
 Network_1.py
-backup/
 test_batch.py
+backup/all_layers/states/
+backup/compact/states

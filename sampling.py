@@ -131,14 +131,14 @@ def sampling_node(agent, nodes, dataset, iteration, verbose = None):
             if str(sampled_arch) in dataset:
                 report = {'energy': dataset.get(str(sampled_arch))}
             else:
-                report = Scheme(design)
+                _, report = Scheme(design)
             if verbose:
                 print("\nstart training:")
                 print("\nsampled from node", j)
                 print("sample no.{}".format(sample_no))
                 print("sampled arch:", sampled_arch)
                 print(report)
-            metrics = report['energy']
+            metrics = report['mae']
             energy.append(metrics)
             # with open('results_sampling.csv', 'a+', newline='') as res:
             #     writer = csv.writer(res)
