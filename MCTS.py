@@ -30,7 +30,7 @@ class MCTS:
         assert len(search_space)     >= 1
         assert type(search_space[0]) == type([])
 
-        self.search_space   = search_space
+        self.search_space   = search_space        
         self.ARCH_CODE_LEN  = arch_code_len
         self.ROOT           = None
         self.Cp             = 0.2
@@ -81,8 +81,10 @@ class MCTS:
         print("\ncollect " + str(len(self.TASK_QUEUE)) + " nets for initializing MCTS")
 
     def re_init_tree(self):
-        # with open('search_space_tq', 'rb') as file:
-        #     self.search_space = pickle.load(file)        
+        with open('search_space_tq', 'rb') as file:
+            search_space = pickle.load(file)
+        different_elements = [x for x in search_space if x not in self.search_space]
+        self.search_space += different_elements
         self.TASK_QUEUE = []
         self.stages += 1 
         sorted_changes = [k for k, v in sorted(self.samples.items(), key=lambda x: x[1], reverse=True)]
@@ -331,8 +333,12 @@ class MCTS:
                                     break
                             else:
                                 continue
-                if type(sampled_arch[0]) == type([]):                    
-                    self.search_space.remove(sampled_arch[-1])
+                if type(sampled_arch[0]) == type([]):
+                    arch = sampled_arch[-1]
+                else:
+                    arch = sampled_arch
+                self.search_space.remove(arch)                          
+
             self.ITERATION += 1
 
 
