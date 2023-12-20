@@ -72,21 +72,23 @@ def evaluate(model, data_loader, args):
     return metrics
 
 
-def Scheme(design):
+def Scheme(design, weight=None):
 
     random.seed(42)
     np.random.seed(42)
     torch.random.manual_seed(42)
     args = Arguments()
-    if torch.cuda.is_available() and args.device == 'cuda':
-        print("using cuda device")
-    else:
-        print("using cpu device")
+    # if torch.cuda.is_available() and args.device == 'cuda':
+    #     print("using cuda device")
+    # else:
+    #     print("using cpu device")
     train_loader, val_loader, test_loader = MOSIDataLoaders(args)
     model = QNet(args, design).to(args.device)
-    # model.load_state_dict(torch.load('classical_weight'), strict= False)
-    model.load_state_dict(torch.load('base_weight_tq'), strict= False)
-    # model.load_state_dict(torch.load('base_weight_tq_1'), strict= False)
+    if weight == None:
+        # model.load_state_dict(torch.load('classical_weight'), strict= False)
+        model.load_state_dict(torch.load('base_weight_tq'), strict= False)
+    else:
+        model.load_state_dict(weight, strict= False)
     criterion = nn.L1Loss(reduction='sum')
     # optimizer = optim.Adam([
     #     {'params': model.ClassicalLayer_a.parameters()},
@@ -111,12 +113,12 @@ def Scheme(design):
         val_loss_list.append(val_loss)
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            print(epoch, train_loss, val_loss, 'saving model')
+            # print(epoch, train_loss, val_loss, 'saving model')
             best_model = copy.deepcopy(model)
-        else:
-            print(epoch, train_loss, val_loss)
+        # else:
+        #     print(epoch, train_loss, val_loss)
     end = time.time()
-    print("Running time: %s seconds" % (end - start))
+    # print("Running time: %s seconds" % (end - start))
 
     metrics = evaluate(best_model, test_loader, args)
     display(metrics)
@@ -124,7 +126,7 @@ def Scheme(design):
               'best_val_loss': best_val_loss, 'mae': metrics['mae']}
     ## store classical weights
     # del best_model.QuantumLayer
-    # torch.save(best_model.state_dict(), 'base_weight_tq_1')
+    # torch.save(best_model.state_dict(), 'base_weight_tq_2')
     return best_model, report
 
 
@@ -132,6 +134,7 @@ if __name__ == '__main__':
     base_code = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]
     # change_code = None
     change_code = [6, 1, 1, 2, 1, 2]
-    
+    change_code = [[6, 1, 1, 2, 1, 2], [4, 4, 5, 0, 5, 5]]    
     design = translator(change_code)
     best_model, report = Scheme(design)
+    weight = best_model.state_dict()

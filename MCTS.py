@@ -45,7 +45,8 @@ class MCTS:
         self.ITERATION      = 0
         self.MAX_MAEINV     = 0
         self.MAX_SAMPNUM    = 0
-        self.sample_nodes   = []        
+        self.sample_nodes   = []
+        self.stages         = 0               
 
         self.tree_height    = tree_height
 
@@ -66,6 +67,7 @@ class MCTS:
 
         self.ROOT = self.nodes[0]
         self.CURT = self.ROOT
+        self.weight = None
         self.init_train()
 
 
@@ -77,6 +79,33 @@ class MCTS:
             self.sample_nodes.append('random')
 
         print("\ncollect " + str(len(self.TASK_QUEUE)) + " nets for initializing MCTS")
+
+    def re_init_tree(self):
+        # with open('search_space_tq', 'rb') as file:
+        #     self.search_space = pickle.load(file)        
+        self.TASK_QUEUE = []
+        self.stages += 1 
+        sorted_changes = [k for k, v in sorted(self.samples.items(), key=lambda x: x[1], reverse=True)]
+        if self.stages == 1:
+            best_change = [eval(sorted_changes[0])]
+        else:
+            for k in sorted_changes:
+                if type(eval(k)[0]) == type([]) and len(eval(k)) == self.stages:
+                    best_change = eval(k)
+                    break               
+        self.ROOT.base_code = best_change
+        qubits = [code[0] for code in self.ROOT.base_code]
+        design = translator(best_change)
+        best_model, _ = Scheme(design, self.weight)
+        self.weight = best_model.state_dict()
+        for i in range(0, 50):
+            net = random.choice(self.search_space)
+            while net[0] in qubits:
+                net = random.choice(self.search_space)           
+            self.TASK_QUEUE.append(net)
+            self.sample_nodes.append('random')
+
+        print("\ncollect " + str(len(self.TASK_QUEUE)) + " nets for re-initializing MCTS {}".format(best_change))
 
 
     def dump_all_states(self, num_samples):
@@ -175,7 +204,7 @@ class MCTS:
                     report = {'mae': dataset.get(job_str)}
                     # print(report)
                 else:
-                    _, report = Scheme(design)
+                    _, report = Scheme(design, self.weight)
 
                 maeinv = -1 * report['mae']
 
@@ -208,10 +237,19 @@ class MCTS:
                 self.dump_all_states(len(self.samples))
             print("\niteration:", self.ITERATION)
 
-            if self.ITERATION == 0:
-                # best_change = max(self.samples, key=self.samples.get)
-                best_change = '[6, 1, 1, 2, 1, 2]'
-                self.TASK_QUEUE = [[eval(best_change), self.TASK_QUEUE[i]] for i in range(len(self.TASK_QUEUE))]
+            if (self.ITERATION % 10 == 1) and (self.ITERATION != 1):            
+                self.re_init_tree()
+                for i in range(len(self.TASK_QUEUE)):
+                    net = self.ROOT.base_code.copy()
+                    net.append(self.TASK_QUEUE[i])
+                    self.TASK_QUEUE[i] = net
+
+            # if self.ROOT.base_code != None:
+            #     for i in range(len(self.TASK_QUEUE)):
+            #         net = self.ROOT.base_code.copy()
+            #         net.append(self.TASK_QUEUE[i])
+            #         self.TASK_QUEUE[i] = net
+                
 
             # evaluate jobs:
             print("\nevaluate jobs...")
@@ -263,10 +301,14 @@ class MCTS:
             # nodes = [0, 3, 12, 15]
             # sampling_node(self, nodes, dataset, self.ITERATION)
 
-            for i in range(0, 20):
+            for i in range(0, 50):
                 # select
                 target_bin   = self.select()
-                sampled_arch = target_bin.sample_arch()                
+                if self.ROOT.base_code == None:
+                    qubits = None
+                else:
+                    qubits = [code[0] for code in self.ROOT.base_code]
+                sampled_arch = target_bin.sample_arch(qubits)                
                 # NOTED: the sampled arch can be None
                 if sampled_arch is not None:                    
                     # push the arch into task queue
@@ -289,9 +331,8 @@ class MCTS:
                                     break
                             else:
                                 continue
-                if type(sampled_arch[0]) == type([]):
-                    sampled_arch = sampled_arch[-1]
-                self.search_space.remove(sampled_arch)
+                if type(sampled_arch[0]) == type([]):                    
+                    self.search_space.remove(sampled_arch[-1])
             self.ITERATION += 1
 
 
@@ -319,7 +360,7 @@ if __name__ == '__main__':
             writer = csv.writer(res)
             writer.writerow(['sample_id', 'arch_code', 'sample_node', 'MAE'])
 
-    # agent = MCTS(search_space, dataset, 5, arch_code_len)
+    # agent = MCTS(search_space, 5, arch_code_len)
     # agent.search()
 
     state_path = 'states'
@@ -329,14 +370,14 @@ if __name__ == '__main__':
     if files:
         files.sort(key=lambda x: os.path.getmtime(os.path.join(state_path, x)))
         node_path = os.path.join(state_path, files[-1])
-        # node_path = 'states/mcts_agent_200'
+        # node_path = 'states/mcts_agent_340'
         with open(node_path, 'rb') as json_data:
             agent = pickle.load(json_data)
         print("\nresume searching,", agent.ITERATION, "iterations completed before")
         print("=====>loads:", len(agent.nodes), "nodes")
         print("=====>loads:", len(agent.samples), "samples")
         print("=====>loads:", len(agent.DISPATCHED_JOB), "dispatched jobs")
-        print("=====>loads:", len(agent.TASK_QUEUE), "task_queue jobs from node:", agent.sample_nodes[0])
+        print("=====>loads:", len(agent.TASK_QUEUE), "task_queue jobs from node:", agent.sample_nodes[0])        
         agent.search()
     else:
         agent = MCTS(search_space, 5, arch_code_len)

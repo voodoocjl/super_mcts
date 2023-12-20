@@ -35,10 +35,10 @@ class Node:
 
         self.is_leaf       = True
         self.id            = Node.obj_counter
-        self.layer        = ceil(log2(self.id + 2) - 1)
+        self.layer         = ceil(log2(self.id + 2) - 1)
         self.classifier    = Classifier({}, self.ARCH_CODE_LEN, self.id)
 
-        self.base     = [[6, 1, 1, 2, 1, 2]]
+        self.base_code     = None
 
         # insert current node into the kids of parent
         if parent is not None:
@@ -58,8 +58,8 @@ class Node:
 
     def put_in_bag(self, net, maeinv):
         assert type(net) == type([])
-        if len(self.base) != 0 and type(net[0]) != type([]):
-            net_ = self.base.copy()
+        if self.base_code != None and type(net[0]) != type([]):
+            net_ = self.base_code.copy()
             net_.append(net)
             net = net_
         net_k = json.dumps(net)
@@ -204,10 +204,13 @@ class Node:
         return f1
 
 
-    def sample_arch(self):
+    def sample_arch(self, qubits):
         if len(self.bag) == 0:
             return None
         net_str = random.choice(list(self.bag.keys()))
+        if qubits != None:
+            while eval(net_str)[-1][0] in qubits:
+                net_str = random.choice(list(self.bag.keys()))
         del self.bag[net_str]
         parent_node = self.parent
         for i in range(3):

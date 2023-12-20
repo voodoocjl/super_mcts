@@ -131,7 +131,7 @@ def sampling_node(agent, nodes, dataset, iteration, verbose = None):
             if str(sampled_arch) in dataset:
                 report = {'mae': dataset.get(str(sampled_arch))}
             else:
-                _, report = Scheme(design)
+                _, report = Scheme(design, self.weight)
             if verbose:
                 print("\nstart training:")
                 print("\nsampled from node", j)
