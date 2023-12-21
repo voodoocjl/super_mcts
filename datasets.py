@@ -55,7 +55,7 @@ def MOSIDataLoaders(args):
     test = CustomDataset(test_audio, test_visual, test_text, test_target)
     train_loader = torch.utils.data.DataLoader(dataset=train, batch_size=args.batch_size, shuffle=True, pin_memory=True)
     val_loader = torch.utils.data.DataLoader(dataset=val, batch_size=args.batch_size, pin_memory=True)
-    test_loader = torch.utils.data.DataLoader(dataset=test, batch_size=args.test_batch_size, pin_memory=True)
+    test_loader = torch.utils.data.DataLoader(dataset=test, batch_size=args.test_batch_size, shuffle = False, pin_memory=True)
     return train_loader, val_loader, test_loader
 
 

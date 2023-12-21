@@ -70,6 +70,25 @@ def evaluate(model, data_loader, args):
     metrics['f1'] = f1_score(true_label, pred_label, average='weighted').item()
     return metrics
 
+def Scheme_no_train(design, weight=None):
+
+    args = Arguments()   
+    train_loader, val_loader, test_loader = MOSIDataLoaders(args)
+    model = QNet(args, design).to(args.device)
+    if weight == None:        
+        model.load_state_dict(torch.load('base_weight_tq'), strict= False)
+    else:
+        model.load_state_dict(weight, strict= False)
+    start = time.time()
+    metrics = evaluate(model, test_loader, args)    
+    end = time.time()
+    print("Running time: %s seconds" % (end - start))   
+    
+    display(metrics)
+    report = {'mae': metrics['mae']}
+  
+    return report
+
 
 def Scheme(design, weight=None):
 
@@ -118,6 +137,7 @@ def Scheme(design, weight=None):
         #     print(epoch, train_loss, val_loss)
         # metrics = evaluate(model, test_loader, args)
         # display(metrics)
+        print(epoch, train_loss, val_loss)
     end = time.time()
     # print("Running time: %s seconds" % (end - start))
     best_model = model
@@ -134,9 +154,9 @@ def Scheme(design, weight=None):
 
 if __name__ == '__main__':
     # change_code = None
-    # change_code = [6, 1, 1, 2, 1, 2]
-    change_code = [5, 3, 6, 4, 5, 4]
-    design = translator(change_code)
-    # design = translator(change_code)
+    change_code = [5, 3, 0, 1, 0, 0]
+    # change_code = [6, 1, 1, 2, 1, 0]
+    design = translator(change_code)    
     best_model, report = Scheme(design)
+    # report = Scheme_no_train(design)
    

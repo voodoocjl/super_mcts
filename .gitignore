@@ -182,3 +182,4 @@ Network_1.py
 test_batch.py
 backup/all_layers/states/
 backup/compact/states
+.vscode/extensions.json
