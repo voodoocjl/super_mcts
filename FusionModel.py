@@ -11,25 +11,27 @@ args = Arguments()
 
 def gen_arch( change_code, base_code = args.base_code):    
     arch_code = base_code[1:] * base_code[0]
-    if type(change_code[0]) != type([]):
-        change_code = [change_code]
-    change_qubit = change_code[-1][0]
-    if change_code is not None:
-        for i in range(len(change_code)):
-            q = change_code[i][0]  # the qubit changed
-            for i, t in enumerate(change_code[i][1:]):
-                arch_code[q + i * args.n_qubits] = t
+    if change_code != None:    
+        if type(change_code[0]) != type([]):
+            change_code = [change_code]
+        change_qubit = change_code[-1][0]
+        if change_code is not None:
+            for i in range(len(change_code)):
+                q = change_code[i][0]  # the qubit changed
+                for i, t in enumerate(change_code[i][1:]):
+                    arch_code[q + i * args.n_qubits] = t
     return arch_code
 
 
-def translator(change_code, base_code = args.base_code):
-    if type(change_code[0]) != type([]):
-        change_code = [change_code]
+def translator(change_code, trainable = 'partial', base_code = args.base_code ):
+    # if type(change_code[0]) != type([]):
+    #     change_code = [change_code]
     net = gen_arch(change_code, base_code)    
     updated_design = {}
-    if change_code is None:
+    if trainable == 'full' or change_code is None:
         updated_design['change_qubit'] = None
     else:
+        if type(change_code[0]) != type([]): change_code = [change_code]
         updated_design['change_qubit'] = change_code[-1][0]
 
     # num of layers
@@ -109,6 +111,12 @@ class TQLayer(tq.QuantumModule):
         self.design = design
         self.n_wires = self.args.n_qubits
         self.rots, self.entas = tq.QuantumModuleList(), tq.QuantumModuleList()
+
+        self.q_params_rot, self.q_params_enta = [], []
+        for i in range(self.args.n_qubits):
+            self.q_params_rot.append(pi * torch.rand(self.design['n_layers']))
+            self.q_params_enta.append(pi * torch.rand(self.design['n_layers']))
+
         for layer in range(self.design['n_layers']):
             for q in range(self.n_wires):
                 # 'trainable' option
@@ -123,14 +131,14 @@ class TQLayer(tq.QuantumModule):
                     enta_trainable = False
                 # single-qubit parametric gates
                 if self.design['rot' + str(layer) + str(q)] == 'Rx':
-                    self.rots.append(tq.RX(has_params=True, trainable=rot_trainable))
+                    self.rots.append(tq.RX(has_params=True, trainable=rot_trainable, init_params=self.q_params_rot[q][layer].reshape((1,))))
                 else:
-                    self.rots.append(tq.RY(has_params=True, trainable=rot_trainable))
+                    self.rots.append(tq.RY(has_params=True, trainable=rot_trainable, init_params=self.q_params_rot[q][layer].reshape((1,))))
                 # entangled gates
                 if self.design['enta' + str(layer) + str(q)][0] == 'IsingXX':
-                    self.entas.append(tq.RXX(has_params=True, trainable=enta_trainable))
+                    self.entas.append(tq.RXX(has_params=True, trainable=enta_trainable, init_params=self.q_params_enta[q][layer].reshape((1,))))
                 else:
-                    self.entas.append(tq.RZZ(has_params=True, trainable=enta_trainable))
+                    self.entas.append(tq.RZZ(has_params=True, trainable=enta_trainable, init_params=self.q_params_enta[q][layer].reshape((1,))))
         self.measure = tq.MeasureAll(tq.PauliZ)
 
     def forward(self, x):

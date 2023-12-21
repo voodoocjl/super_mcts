@@ -209,8 +209,12 @@ class Node:
             return None
         net_str = random.choice(list(self.bag.keys()))
         if qubits != None:
+            i = 0
             while eval(net_str)[-1][0] in qubits:
                 net_str = random.choice(list(self.bag.keys()))
+                i += 1
+                if i > 200:
+                    return None
         del self.bag[net_str]
         parent_node = self.parent
         for i in range(3):

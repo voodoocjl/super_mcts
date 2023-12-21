@@ -33,8 +33,7 @@ def train(model, data_loader, optimizer, criterion, args):
         target = target.to(args.device)
         optimizer.zero_grad()
         output = model(data_a, data_v, data_t)
-        loss = criterion(output, target)
-        # loss = output[1]
+        loss = criterion(output, target)        
         loss.backward()
         optimizer.step()
 
@@ -111,19 +110,22 @@ def Scheme(design, weight=None):
         train_loss_list.append(train_loss)
         val_loss = test(model, val_loader, criterion, args)
         val_loss_list.append(val_loss)
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            # print(epoch, train_loss, val_loss, 'saving model')
-            best_model = copy.deepcopy(model)
+        # if val_loss < best_val_loss:
+        #     best_val_loss = val_loss
+        #     print(epoch, train_loss, val_loss, 'saving model')
+        #     best_model = copy.deepcopy(model)           
         # else:
         #     print(epoch, train_loss, val_loss)
+        # metrics = evaluate(model, test_loader, args)
+        # display(metrics)
     end = time.time()
     # print("Running time: %s seconds" % (end - start))
-
+    best_model = model
     metrics = evaluate(best_model, test_loader, args)
     display(metrics)
     report = {'train_loss_list': train_loss_list, 'val_loss_list': val_loss_list,
               'best_val_loss': best_val_loss, 'mae': metrics['mae']}
+    
     ## store classical weights
     # del best_model.QuantumLayer
     # torch.save(best_model.state_dict(), 'base_weight_tq_2')
@@ -131,10 +133,10 @@ def Scheme(design, weight=None):
 
 
 if __name__ == '__main__':
-    base_code = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]
     # change_code = None
-    change_code = [6, 1, 1, 2, 1, 2]
-    change_code = [[6, 1, 1, 2, 1, 2], [4, 4, 5, 0, 5, 5]]    
+    # change_code = [6, 1, 1, 2, 1, 2]
+    change_code = [5, 3, 6, 4, 5, 4]
     design = translator(change_code)
+    # design = translator(change_code)
     best_model, report = Scheme(design)
-    weight = best_model.state_dict()
+   

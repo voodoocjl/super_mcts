@@ -322,7 +322,7 @@ class MCTS:
                     # trail 1: pick a network from the left leaf
                     for n in self.nodes:
                         if n.is_leaf == True:
-                            sampled_arch = n.sample_arch()
+                            sampled_arch = n.sample_arch(qubits)
                             if sampled_arch is not None:
                                 print("\nselected node" + str(n.id-15) + " in leaf layer")                                
                                 # print("sampled arch:", sampled_arch)
