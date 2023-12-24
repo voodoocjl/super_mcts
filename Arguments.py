@@ -12,7 +12,7 @@ class Arguments:
         # self.t_projsize = 12
         self.device     = 'cpu'        
         self.clr        = 0.005
-        self.qlr        = 0.01
+        self.qlr        = 0.001
         self.epochs     = 3
         self.batch_size = 32
         self.test_batch_size = 673
