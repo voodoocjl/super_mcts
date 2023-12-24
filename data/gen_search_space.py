@@ -27,6 +27,9 @@ while i < N:
     #      random.choice([0, 1, 2, 4, 5]),
     #      random.choice([0, 1, 2, 3, 5]),
     #      random.choice([0, 1, 2, 3, 4])]
+    for i in range(5):
+        
+
     arch = q
 
     if arch in search_space:

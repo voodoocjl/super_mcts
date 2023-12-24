@@ -76,13 +76,13 @@ def Scheme_no_train(design, weight=None):
     train_loader, val_loader, test_loader = MOSIDataLoaders(args)
     model = QNet(args, design).to(args.device)
     if weight == None:        
-        model.load_state_dict(torch.load('base_weight_tq'), strict= False)
+        model.load_state_dict(torch.load('base_weight_tq_num4'), strict= False)
     else:
         model.load_state_dict(weight, strict= False)
     start = time.time()
     metrics = evaluate(model, test_loader, args)    
     end = time.time()
-    print("Running time: %s seconds" % (end - start))   
+    # print("Running time: %s seconds" % (end - start))   
     
     display(metrics)
     report = {'mae': metrics['mae']}
@@ -104,7 +104,7 @@ def Scheme(design, weight=None):
     model = QNet(args, design).to(args.device)
     if weight == None:
         # model.load_state_dict(torch.load('classical_weight'), strict= False)
-        model.load_state_dict(torch.load('base_weight_tq'), strict= False)
+        model.load_state_dict(torch.load('base_weight_tq_num4'), strict= False)
     else:
         model.load_state_dict(weight, strict= False)
     criterion = nn.L1Loss(reduction='sum')
@@ -137,7 +137,7 @@ def Scheme(design, weight=None):
         #     print(epoch, train_loss, val_loss)
         # metrics = evaluate(model, test_loader, args)
         # display(metrics)
-        print(epoch, train_loss, val_loss)
+        # print(epoch, train_loss, val_loss)
     end = time.time()
     # print("Running time: %s seconds" % (end - start))
     best_model = model
@@ -148,13 +148,13 @@ def Scheme(design, weight=None):
     
     ## store classical weights
     # del best_model.QuantumLayer
-    # torch.save(best_model.state_dict(), 'base_weight_tq_2')
+    # torch.save(best_model.state_dict(), 'base_weight_tq_num4')
     return best_model, report
 
 
 if __name__ == '__main__':
     # change_code = None
-    change_code = [5, 3, 0, 1, 0, 0]
+    change_code = [4, 5, 6, 6, 1, 4]
     # change_code = [6, 1, 1, 2, 1, 0]
     design = translator(change_code)    
     best_model, report = Scheme(design)

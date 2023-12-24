@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from Node import Node
 from FusionModel import translator
-from schemes import Scheme
+from schemes import Scheme, Scheme_no_train
 import time
 from sampling import sampling_node
 
@@ -102,8 +102,8 @@ class MCTS:
         self.weight = best_model.state_dict()
         for i in range(0, 50):
             net = random.choice(self.search_space)
-            while net[0] in qubits:
-                net = random.choice(self.search_space)           
+            # while net[0] in qubits:
+            #     net = random.choice(self.search_space)           
             self.TASK_QUEUE.append(net)
             self.sample_nodes.append('random')
 
@@ -202,11 +202,14 @@ class MCTS:
                 design = translator(job)
                 # print("translated to:\n{}".format(design))
                 # print("\nstart training:")
-                if job_str in dataset:
-                    report = {'mae': dataset.get(job_str)}
-                    # print(report)
-                else:
-                    _, report = Scheme(design, self.weight)
+                # if job_str in dataset:
+                #     report = {'mae': dataset.get(job_str)}
+                #     # print(report)
+                # else:
+                #     _, report = Scheme(design, self.weight)
+
+                # report = Scheme_no_train(design, self.weight)
+                _, report = Scheme(design, self.weight)
 
                 maeinv = -1 * report['mae']
 
@@ -233,25 +236,32 @@ class MCTS:
             self.predict_nodes('mean')
             self.reset_node_data()
 
-        while len(self.search_space) > 0 and self.ITERATION < 50:
-            # save current state
-            if self.ITERATION > 0:
-                self.dump_all_states(len(self.samples))
-            print("\niteration:", self.ITERATION)
+        # for i in range(0, 50):
+        #     net = random.choice(self.search_space)
+        #     # while net[0] in qubits:
+        #     #     net = random.choice(self.search_space)           
+        #     self.TASK_QUEUE.append(net)
+        #     self.sample_nodes.append('random')
 
-            if (self.ITERATION % 10 == 1) and (self.ITERATION != 1):            
-                self.re_init_tree()
+        self.ROOT.base_code = [[4, 5, 6, 6, 1, 4]]
+        if self.ROOT.base_code != None:
                 for i in range(len(self.TASK_QUEUE)):
                     net = self.ROOT.base_code.copy()
                     net.append(self.TASK_QUEUE[i])
-                    self.TASK_QUEUE[i] = net
+                    self.TASK_QUEUE[i] = net       
 
-            # if self.ROOT.base_code != None:
+        while len(self.search_space) > 0 and self.ITERATION < 20:
+            # save current state
+            if self.ITERATION > 0:
+                self.dump_all_states(len(self.samples))
+            print("\niteration:", self.ITERATION)            
+
+            # if (self.ITERATION % 10 == 1) and (self.ITERATION != 1):            
+            #     self.re_init_tree()
             #     for i in range(len(self.TASK_QUEUE)):
             #         net = self.ROOT.base_code.copy()
             #         net.append(self.TASK_QUEUE[i])
             #         self.TASK_QUEUE[i] = net
-                
 
             # evaluate jobs:
             print("\nevaluate jobs...")
@@ -351,6 +361,9 @@ if __name__ == '__main__':
     with open('search_space_tq', 'rb') as file:
         search_space = pickle.load(file)
     
+    with open('5_space', 'rb') as file:
+        search_space = pickle.load(file)
+    
     arch_code_len = 8 
     print("\nthe length of base architecture codes:", arch_code_len)
     print("total architectures:", len(search_space))
@@ -386,5 +399,6 @@ if __name__ == '__main__':
         print("=====>loads:", len(agent.TASK_QUEUE), "task_queue jobs from node:", agent.sample_nodes[0])        
         agent.search()
     else:
-        agent = MCTS(search_space, 5, arch_code_len)
+        # agent = MCTS(search_space, 5, arch_code_len)
+        agent = MCTS(search_space, 4, arch_code_len)
         agent.search()
