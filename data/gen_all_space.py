@@ -8,16 +8,19 @@ def allPermutation(n):
     all_permutation = list(itertools.product(permutation, repeat=5))
     return all_permutation
 
-all_permutation = allPermutation(7)
+n = 4
+all_permutation = allPermutation(n)
 result = []
 for i in range(len(all_permutation)):
-    temp = [5]
-    for j in range(len(all_permutation[i])):
-        # temp.append(str(all_permutation[i][j]))
+    temp = []
+    for j in range(len(all_permutation[i])):        
         temp.append(all_permutation[i][j])
     result.append(temp)
-result.remove([5,6,6,6,6,6])
+
+for qubit in range(n):
+    result.remove([qubit] + [(qubit+1)%n]*4)
+    result.remove([qubit]*5)
 print(len(result))
 
-with open('5_space', 'wb') as file:
+with open('search_space_mnist', 'wb') as file:
     pickle.dump(result, file)
