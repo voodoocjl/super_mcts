@@ -183,3 +183,11 @@ test_batch.py
 backup/all_layers/states/
 backup/compact/states
 .vscode/extensions.json
+data/mnist/MNIST/raw/t10k-images-idx3-ubyte
+data/mnist/MNIST/raw/t10k-images-idx3-ubyte.gz
+data/mnist/MNIST/raw/t10k-labels-idx1-ubyte
+data/mnist/MNIST/raw/t10k-labels-idx1-ubyte.gz
+data/mnist/MNIST/raw/train-images-idx3-ubyte
+data/mnist/MNIST/raw/train-images-idx3-ubyte.gz
+data/mnist/MNIST/raw/train-labels-idx1-ubyte
+data/mnist/MNIST/raw/train-labels-idx1-ubyte.gz
