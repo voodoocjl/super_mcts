@@ -71,7 +71,7 @@ class TQLayer(tq.QuantumModule):
                     rot_trainable = True
                     enta_trainable = True
                 elif q == self.design['change_qubit']:
-                    rot_trainable = False
+                    rot_trainable = True
                     enta_trainable = True
                 else:
                     rot_trainable = False
@@ -96,9 +96,10 @@ class TQLayer(tq.QuantumModule):
         # encode input image with '4x4_ryzxy' gates        
         self.encoder(qdev, x)
 
-        for layer in range(self.design['n_layers']):           
+        for layer in range(self.design['n_layers']):                       
             for j in range(self.n_wires):
-                self.rots[j + layer * self.n_wires](qdev, wires=j)
+                self.rots[j + layer * self.n_wires](qdev, wires=j)            
+            for j in range(self.n_wires):
                 if self.design['enta' + str(layer) + str(j)][1][0] != self.design['enta' + str(layer) + str(j)][1][1]:
                     self.entas[j + layer * self.n_wires](qdev, wires=self.design['enta' + str(layer) + str(j)][1])
         return self.measure(qdev)
@@ -109,14 +110,7 @@ class QNet(nn.Module):
         super(QNet, self).__init__()
         self.args = arguments
         self.design = design
-        if args.backend == 'pennylane':
-            self.QuantumLayer = QuantumLayer(self.args, self.design)
-        else:
-            self.QuantumLayer = TQLayer(self.args, self.design)
-        self.Regressor = nn.Linear(self.args.n_qubits, 1)
-        for name, param in self.named_parameters():
-            if "QuantumLayer" not in name:
-                param.requires_grad = False
+        self.QuantumLayer = TQLayer(self.args, self.design)
 
     def forward(self, x_image):
         exp_val = self.QuantumLayer(x_image)        

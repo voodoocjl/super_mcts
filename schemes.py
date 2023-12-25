@@ -120,13 +120,13 @@ def Scheme(design, weight=None):
     report = {'train_loss_list': train_loss_list, 'val_loss_list': val_loss_list,
               'best_val_loss': best_val_loss, 'mae': metrics}
     
-    # torch.save(best_model.state_dict(), 'base_weight_val')
+    torch.save(best_model.state_dict(), 'base_weight')
     return best_model, report
 
 
 if __name__ == '__main__':
-    # change_code = None
-    change_code = [1, 2, 3, 2, 0]
+    change_code = None
+    # change_code = [0, 0, 0, 0, 1]
     # change_code = [6, 1, 1, 2, 1, 0]
     design = translator(change_code)    
     best_model, report = Scheme(design)   
