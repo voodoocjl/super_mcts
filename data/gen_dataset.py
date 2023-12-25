@@ -2,7 +2,7 @@ import csv
 import pickle
 import os
 
-name = 'mosi_dataset_tq'
+name = 'mnist_dataset'
 dir_path = os.path.dirname(os.path.realpath(__file__))
 files = os.listdir(dir_path)
 dataset_file = os.path.join(dir_path, name)
@@ -24,7 +24,7 @@ for file in files:
             energy.append(row[3])
         try:
             # assert arch_code[0] == 'arch_code' and energy[0] == 'test_mae'
-            assert arch_code[0] == 'arch_code' and energy[0] == 'MAE'
+            assert arch_code[0] == 'arch_code' and energy[0] == 'ACC'
         except AssertionError:
             print(file, 'is a wrong csv files')
             continue

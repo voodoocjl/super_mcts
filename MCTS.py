@@ -72,7 +72,7 @@ class MCTS:
 
 
     def init_train(self):
-        for i in range(0, 200):
+        for i in range(0, 50):
             net = random.choice(self.search_space)
             self.search_space.remove(net)
             self.TASK_QUEUE.append(net)
@@ -124,13 +124,7 @@ class MCTS:
     def populate_training_data(self):
         self.reset_node_data()
         for k, v in self.samples.items():
-            self.ROOT.put_in_bag(json.loads(k), v)
-
-
-    def populate_validation_data(self):
-        for k, v in validation.items():
-            self.ROOT.validation[k] = v
-        self.ROOT.bag = self.ROOT.validation.copy()
+            self.ROOT.put_in_bag(json.loads(k), v)    
 
 
     def populate_prediction_data(self):
@@ -150,12 +144,6 @@ class MCTS:
                 i.predict_validation()
             else:
                 i.predict(method)
-
-
-    def node_performance(self):
-        for i in self.nodes:
-            if i.is_leaf == False:
-                i.f1.append(i.kids[0].get_performance())
 
 
     def check_leaf_bags(self):
@@ -227,11 +215,7 @@ class MCTS:
                 print("current queue length:", len(self.TASK_QUEUE))
 
 
-    def search(self):
-        if len(self.ROOT.validation) == 0:
-            self.populate_validation_data()
-            self.predict_nodes('mean')
-            self.reset_node_data()
+    def search(self):        
 
         while len(self.search_space) > 0 and self.ITERATION < 50:
             # save current state
@@ -277,17 +261,7 @@ class MCTS:
             # self.print_tree()
 
             # clear the data in nodes
-            self.reset_node_data()
-
-            # print("\npopulate validation data...")
-            # self.ROOT.bag = self.ROOT.validation.copy()
-            # self.predict_nodes()
-            # self.node_performance()
-            # self.reset_node_data()
-
-            self.predict_nodes(None, 'validation')
-            self.node_performance()
-            self.reset_node_data()
+            self.reset_node_data() 
 
             print("\npopulate prediction data...")
             self.populate_prediction_data()
@@ -303,7 +277,7 @@ class MCTS:
             # nodes = [0, 3, 12, 15]
             # sampling_node(self, nodes, dataset, self.ITERATION)
 
-            for i in range(0, 50):
+            for i in range(0, 10):
                 # select
                 target_bin   = self.select()
                 if self.ROOT.base_code == None:
@@ -348,23 +322,22 @@ if __name__ == '__main__':
     np.random.seed(42)
     torch.random.manual_seed(42)
 
-    with open('search_space_tq', 'rb') as file:
+    with open('search_space_mnist', 'rb') as file:
         search_space = pickle.load(file)
     
-    arch_code_len = 8 
+    arch_code_len = len(search_space[0])
     print("\nthe length of base architecture codes:", arch_code_len)
     print("total architectures:", len(search_space))
 
-    with open('data/mosi_dataset_tq', 'rb') as file:
+    with open('data/mnist_dataset', 'rb') as file:
         dataset = pickle.load(file)
     # with open('data/chemistry_validation', 'rb') as file:
-    #     validation = pickle.load(file)
-    validation = dict(list(dataset.items())[-500:])
+    #     validation = pickle.load(file)    
 
     if os.path.isfile('results.csv') == False:
         with open('results.csv', 'w+', newline='') as res:
             writer = csv.writer(res)
-            writer.writerow(['sample_id', 'arch_code', 'sample_node', 'MAE'])
+            writer.writerow(['sample_id', 'arch_code', 'sample_node', 'ACC'])
 
     # agent = MCTS(search_space, 5, arch_code_len)
     # agent.search()
@@ -386,5 +359,5 @@ if __name__ == '__main__':
         print("=====>loads:", len(agent.TASK_QUEUE), "task_queue jobs from node:", agent.sample_nodes[0])        
         agent.search()
     else:
-        agent = MCTS(search_space, 5, arch_code_len)
+        agent = MCTS(search_space, 3, arch_code_len)
         agent.search()

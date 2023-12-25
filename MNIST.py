@@ -22,9 +22,6 @@ class CustomDataset(Dataset):
 
 
 def MNISTDataLoaders(args):
-    # set seed
-    torch.manual_seed(42)
-
     # define data transformation
     tran = [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     if not args.center_crop == 28:
@@ -59,10 +56,3 @@ def MNISTDataLoaders(args):
     custom_test_loader = DataLoader(custom_test_dataset, batch_size=len(custom_test_dataset), shuffle=False)
     return custom_train_loader, custom_val_loader, custom_test_loader
 
-
-# if __name__ == '__main__':
-#     train_loader, val_loader, test_loader = MNISTDataLoaders()
-#     for data_a, data_v, data_t, target in train_loader:
-#         print(data_a.shape, data_v.shape, data_t.shape, target.shape)
-#         print(data_a.dtype, data_v.dtype, data_t.dtype, target.dtype)
-#         break

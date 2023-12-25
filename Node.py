@@ -89,17 +89,13 @@ class Node:
         name += self.pad_str_to_8chars('n:' + str(self.n))
         name += self.pad_str_to_8chars('visit:' + str(self.counter))
         if self.is_leaf == False:
-            name += self.pad_str_to_8chars('acc:{0:.4f} '.format(round(self.classifier.training_accuracy[-1], 4)))
-            name += self.pad_str_to_8chars('f1:{0:.4f}   '.format(round(self.f1[-1], 4)))
+            name += self.pad_str_to_8chars('acc:{0:.4f} '.format(round(self.classifier.training_accuracy[-1], 4)))          
 
         else:
-            name += self.pad_str_to_8chars('acc: ---- ')
-            name += self.pad_str_to_8chars('f1:  ---- ')
+            name += self.pad_str_to_8chars('acc: ---- ')           
 
 
-        name += self.pad_str_to_8chars('sp:' + str(len(self.bag)))
-        # name += (self.pad_str_to_8chars('g_k:' + str(len(self.good_kid_data))))
-        # name += (self.pad_str_to_8chars('b_k:' + str(len(self.bad_kid_data))))
+        name += self.pad_str_to_8chars('sp:' + str(len(self.bag)))        
 
         parent = '----'
         if self.parent is not None:
@@ -217,7 +213,7 @@ class Node:
                     return None
         del self.bag[net_str]
         parent_node = self.parent
-        for i in range(3):
+        for i in range(self.layer):
             del parent_node.bag[net_str]
             parent_node = parent_node.parent
         return json.loads(net_str)
