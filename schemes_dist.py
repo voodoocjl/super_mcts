@@ -107,13 +107,11 @@ def Scheme(design, weight=None):
         val_loss_list.append(val_loss)
         if val_loss > best_val_loss:
             best_val_loss = val_loss
-            print(epoch, train_loss, val_loss, 'saving model')
+            # print(epoch, train_loss, val_loss, 'saving model')
             best_model = copy.deepcopy(model)           
-        else:
-            print(epoch, train_loss, val_loss)
-        # metrics = evaluate(model, test_loader, args)
-        # display(metrics)
-        # print(epoch, train_loss, val_loss)
+        # else:
+        #     print(epoch, train_loss, val_loss)
+        
     end = time.time()
     print("Running time: %s seconds" % (end - start))
     # best_model = model
