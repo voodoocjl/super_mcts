@@ -89,7 +89,7 @@ def Scheme(design, weight=None):
     if weight != None:
         model.load_state_dict(weight, strict= False)
     else:
-        model.load_state_dict(torch.load('base_weight_last'))
+        model.load_state_dict(torch.load('base_weight'))
     criterion = nn.NLLLoss()
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
@@ -120,7 +120,7 @@ def Scheme(design, weight=None):
     report = {'train_loss_list': train_loss_list, 'val_loss_list': val_loss_list,
               'best_val_loss': best_val_loss, 'mae': metrics}
     
-    torch.save(best_model.state_dict(), 'base_weight')
+    # torch.save(best_model.state_dict(), 'base_weight')
     return best_model, report
 
 
