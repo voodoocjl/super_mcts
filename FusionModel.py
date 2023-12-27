@@ -13,19 +13,18 @@ args = Arguments()
 
 def gen_arch(change_code, base_code=args.base_code):
     arch_code = base_code[1:] * base_code[0]
-    if change_code != None:
+    if change_code is not None:
         if type(change_code[0]) != type([]):
             change_code = [change_code]
         change_qubit = change_code[-1][0]
-        if change_code is not None:
-            for i in range(len(change_code)):
-                q = change_code[i][0]  # the qubit changed
-                for i, t in enumerate(change_code[i][1:]):
-                    arch_code[q + i * args.n_qubits] = t
+        for i in range(len(change_code)):
+            q = change_code[i][0]  # the qubit changed
+            for j, t in enumerate(change_code[i][1:]):
+                arch_code[q + j * args.n_qubits] = t
     return arch_code
 
 
-def translator(change_code, trainable='partial', base_code=args.base_code):    
+def translator(change_code, trainable='partial', base_code=args.base_code):
     net = gen_arch(change_code, base_code)
     updated_design = {}
     if trainable == 'full' or change_code is None:
@@ -46,7 +45,6 @@ def translator(change_code, trainable='partial', base_code=args.base_code):
         for j in range(args.n_qubits):
             updated_design['enta' + str(layer) + str(j)] = ('CU3', [j, net[j + layer * args.n_qubits]])
 
-        updated_design['total_gates'] = updated_design['n_layers'] * args.n_qubits
     return updated_design
 
 class TQLayer(tq.QuantumModule):
@@ -61,8 +59,8 @@ class TQLayer(tq.QuantumModule):
 
         self.q_params_rot, self.q_params_enta = [], []
         for i in range(self.args.n_qubits):
-            self.q_params_rot.append(pi * torch.rand(3 * self.design['n_layers'])) # each U3 gate needs 3 parameters
-            self.q_params_enta.append(pi * torch.rand(3 * self.design['n_layers'])) # each CU3 gate needs 3 parameters
+            self.q_params_rot.append(pi * torch.rand(self.design['n_layers'], 3)) # each U3 gate needs 3 parameters
+            self.q_params_enta.append(pi * torch.rand(self.design['n_layers'], 3)) # each CU3 gate needs 3 parameters
 
         for layer in range(self.design['n_layers']):
             for q in range(self.n_wires):
@@ -79,11 +77,11 @@ class TQLayer(tq.QuantumModule):
                 # single-qubit parametric gates
                 if self.design['rot' + str(layer) + str(q)] == 'U3':
                     self.rots.append(tq.U3(has_params=True, trainable=rot_trainable,
-                                           init_params=self.q_params_enta[q][layer*3:(layer+1)*3].reshape((3,))))                
+                                           init_params=self.q_params_rot[q][layer]))
                 # entangled gates
                 if self.design['enta' + str(layer) + str(q)][0] == 'CU3':
                     self.entas.append(tq.CU3(has_params=True, trainable=enta_trainable,
-                                             init_params=self.q_params_enta[q][layer*3:(layer+1)*3].reshape((3,))))                
+                                             init_params=self.q_params_enta[q][layer]))
         self.measure = tq.MeasureAll(tq.PauliZ)
 
     def forward(self, x):
@@ -93,12 +91,12 @@ class TQLayer(tq.QuantumModule):
 
         qdev = tq.QuantumDevice(n_wires=self.n_wires, bsz=bsz, device=x.device)
 
-        # encode input image with '4x4_ryzxy' gates        
+        # encode input image with '4x4_ryzxy' gates
         self.encoder(qdev, x)
 
-        for layer in range(self.design['n_layers']):                       
+        for layer in range(self.design['n_layers']):
             for j in range(self.n_wires):
-                self.rots[j + layer * self.n_wires](qdev, wires=j)            
+                self.rots[j + layer * self.n_wires](qdev, wires=j)
             for j in range(self.n_wires):
                 if self.design['enta' + str(layer) + str(j)][1][0] != self.design['enta' + str(layer) + str(j)][1][1]:
                     self.entas[j + layer * self.n_wires](qdev, wires=self.design['enta' + str(layer) + str(j)][1])
@@ -113,6 +111,6 @@ class QNet(nn.Module):
         self.QuantumLayer = TQLayer(self.args, self.design)
 
     def forward(self, x_image):
-        exp_val = self.QuantumLayer(x_image)        
+        exp_val = self.QuantumLayer(x_image)
         output = F.log_softmax(exp_val, dim=1)
         return output
