@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 import time
 from sklearn.metrics import accuracy_score, f1_score
-from MNIST import MNISTDataLoaders
+from MNIST_tq import MNISTDataLoaders
 from FusionModel import QNet
 from FusionModel import translator
 from Arguments import Arguments
@@ -21,15 +21,15 @@ def get_param_num(model):
 def display(metrics):
     print("\nTest Accuracy: {}".format(metrics))
     # print("Test correlation: {}".format(metrics['corr']))
-    
+
 def train(model, data_loader, optimizer, criterion, args):
     model.train()
-    for images, targets in data_loader:
-        images = images.to(args.device)
-        targets = targets.to(args.device)
+    for feed_dict in data_loader:
+        images = feed_dict['image'].to(args.device)
+        targets = feed_dict['digit'].to(args.device)
         optimizer.zero_grad()
         output = model(images)
-        loss = criterion(output, targets)        
+        loss = criterion(output, targets)
         loss.backward()
         optimizer.step()
 
@@ -39,14 +39,14 @@ def test(model, data_loader, criterion, args):
     target_all = torch.Tensor()
     output_all = torch.Tensor()
     with torch.no_grad():
-        for data_image, target in data_loader:
-            data_image = data_image.to(args.device)
-            target = target.to(args.device)
+        for feed_dict in data_loader:
+            data_image = feed_dict['image'].to(args.device)
+            target = feed_dict['digit'].to(args.device)
             output = model(data_image)
             instant_loss = criterion(output, target).item()
             total_loss += instant_loss
             target_all = torch.cat((target_all, target), dim=0)
-            output_all = torch.cat((output_all, output), dim=0) 
+            output_all = torch.cat((output_all, output), dim=0)
     total_loss /= len(data_loader)
     _, indices = output_all.topk(1, dim=1)
     masks = indices.eq(target_all.view(-1, 1).expand_as(indices))
@@ -59,10 +59,10 @@ def test(model, data_loader, criterion, args):
 def evaluate(model, data_loader, args):
     model.eval()
     metrics = {}
-    
+
     with torch.no_grad():
-        for data_image, target in data_loader:
-            data_image, target = data_image.to(args.device), target.to(args.device)
+        for feed_dict in data_loader:
+            data_image, target = feed_dict['image'].to(args.device), feed_dict['digit'].to(args.device)
             output = model(data_image)
 
     _, indices = output.topk(1, dim=1)
@@ -71,7 +71,7 @@ def evaluate(model, data_loader, args):
     corrects = masks.sum().item()
     accuracy = corrects / size
 
-    metrics = accuracy    
+    metrics = accuracy
     return metrics
 
 def Scheme(design, weight=None, epochs=None):
@@ -94,7 +94,7 @@ def Scheme(design, weight=None, epochs=None):
         else:
             model.load_state_dict(torch.load('base_weight'))
     criterion = nn.NLLLoss()
-   
+
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
     train_loss_list, val_loss_list = [], []
     best_val_loss = 0
@@ -109,7 +109,7 @@ def Scheme(design, weight=None, epochs=None):
         if val_loss > best_val_loss:
             best_val_loss = val_loss
             print(epoch, train_loss, val_loss, 'saving model')
-            best_model = copy.deepcopy(model)           
+            best_model = copy.deepcopy(model)
         else:
             print(epoch, train_loss, val_loss)
         # metrics = evaluate(model, test_loader, args)
@@ -122,18 +122,18 @@ def Scheme(design, weight=None, epochs=None):
     display(metrics)
     report = {'train_loss_list': train_loss_list, 'val_loss_list': val_loss_list,
               'best_val_loss': best_val_loss, 'mae': metrics}
-    
+
     # torch.save(best_model.state_dict(), 'base_weight')
     return best_model, report
 
 
 if __name__ == '__main__':
     change_code = None
-    change_code = [1, 1, 3, 0, 1]  #0.717825355
-    change_code = [[2, 3, 3, 3, 2], [0, 1, 1, 1, 2], [1, 2, 1, 2, 2], [3, 1, 0, 1, 3]]
+    # change_code = [1, 1, 3, 0, 1]  #0.717825355
+    # change_code = [[2, 3, 3, 3, 2], [0, 1, 1, 1, 2], [1, 2, 1, 2, 2], [3, 1, 0, 1, 3]]
 
-    # design = translator(change_code)    
+    # design = translator(change_code)
     # best_model, report = Scheme(design)
 
-    design = translator(change_code, 'full')    
+    design = translator(change_code, 'full')
     best_model, report = Scheme(design, 'init', 20)
