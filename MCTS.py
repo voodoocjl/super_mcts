@@ -81,7 +81,7 @@ class MCTS:
         print("\ncollect " + str(len(self.TASK_QUEUE)) + " nets for initializing MCTS")
 
     def re_init_tree(self):
-        with open('search_space_tq', 'rb') as file:
+        with open('search_space_mnist', 'rb') as file:
             search_space = pickle.load(file)
         different_elements = [x for x in search_space if x not in self.search_space]
         self.search_space += different_elements
@@ -97,8 +97,8 @@ class MCTS:
                     break               
         self.ROOT.base_code = best_change
         qubits = [code[0] for code in self.ROOT.base_code]
-        design = translator(best_change)
-        best_model, _ = Scheme(design, self.weight)
+        design = translator(best_change, 'full')
+        best_model, _ = Scheme(design, 'init', 30)
         self.weight = best_model.state_dict()
         for i in range(0, 50):
             net = random.choice(self.search_space)
@@ -196,16 +196,16 @@ class MCTS:
                 else:
                     _, report = Scheme(design, self.weight)
 
-                maeinv = -1 * report['mae']
+                maeinv = 1 * report['mae']
 
                 self.DISPATCHED_JOB[job_str] = maeinv
                 self.samples[job_str]        = maeinv
-                self.mae_list.append(-1 * maeinv)
+                self.mae_list.append(maeinv)
 
                 with open('results.csv', 'a+', newline='') as res:
                     writer = csv.writer(res)
 
-                    metrics = -1 * maeinv
+                    metrics = maeinv
                     writer.writerow([len(self.samples), job_str, sample_node, metrics])                
 
             except Exception as e:
@@ -217,13 +217,13 @@ class MCTS:
 
     def search(self):        
 
-        while len(self.search_space) > 0 and self.ITERATION < 50:
+        while len(self.search_space) > 0 and self.ITERATION < 40:
             # save current state
             if self.ITERATION > 0:
                 self.dump_all_states(len(self.samples))
             print("\niteration:", self.ITERATION)
 
-            if (self.ITERATION % 10 == 1) and (self.ITERATION != 1):            
+            if (self.ITERATION % 10 == 0) and (self.ITERATION != 0):            
                 self.re_init_tree()
                 for i in range(len(self.TASK_QUEUE)):
                     net = self.ROOT.base_code.copy()
@@ -359,5 +359,5 @@ if __name__ == '__main__':
         print("=====>loads:", len(agent.TASK_QUEUE), "task_queue jobs from node:", agent.sample_nodes[0])        
         agent.search()
     else:
-        agent = MCTS(search_space, 3, arch_code_len)
+        agent = MCTS(search_space, 4, arch_code_len)
         agent.search()

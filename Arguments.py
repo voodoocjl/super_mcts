@@ -5,7 +5,7 @@ class Arguments:
         self.device     = 'cpu'        
         self.clr        = 0.005
         self.qlr        = 0.01
-        self.epochs     = 2
+        self.epochs     = 3
         self.batch_size = 256        
         self.sampling = 5
         self.n_layers = 4

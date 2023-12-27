@@ -74,22 +74,25 @@ def evaluate(model, data_loader, args):
     metrics = accuracy    
     return metrics
 
-def Scheme(design, weight=None):
+def Scheme(design, weight=None, epochs=None):
     random.seed(42)
     np.random.seed(42)
     torch.random.manual_seed(42)
 
     args = Arguments()
+    if epochs == None:
+        epochs = args.epochs
     if torch.cuda.is_available() and args.device == 'cuda':
         print("using cuda device")
     else:
         print("using cpu device")
     train_loader, val_loader, test_loader = MNISTDataLoaders(args)
     model = QNet(args, design).to(args.device)
-    if weight != None:
-        model.load_state_dict(weight, strict= False)
-    else:
-        model.load_state_dict(torch.load('base_weight'))
+    if weight != 'init':
+        if weight != None:
+            model.load_state_dict(weight, strict= False)
+        else:
+            model.load_state_dict(torch.load('base_weight'))
     criterion = nn.NLLLoss()
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
@@ -97,7 +100,7 @@ def Scheme(design, weight=None):
     best_val_loss = 0
 
     start = time.time()
-    for epoch in range(args.epochs):
+    for epoch in range(epochs):
         train(model, train_loader, optimizer, criterion, args)
         train_loss = test(model, train_loader, criterion, args)
         train_loss_list.append(train_loss)
@@ -126,7 +129,11 @@ def Scheme(design, weight=None):
 
 if __name__ == '__main__':
     change_code = None
-    # change_code = [0, 0, 0, 0, 1]
-    # change_code = [6, 1, 1, 2, 1, 0]
-    design = translator(change_code)    
-    best_model, report = Scheme(design)   
+    change_code = [1, 1, 3, 0, 1]  #0.717825355
+    change_code = [[2, 3, 3, 3, 2], [0, 1, 1, 1, 2], [1, 2, 1, 2, 2], [3, 1, 0, 1, 3]]
+
+    # design = translator(change_code)    
+    # best_model, report = Scheme(design)
+
+    design = translator(change_code, 'full')    
+    best_model, report = Scheme(design, 'init', 20)
