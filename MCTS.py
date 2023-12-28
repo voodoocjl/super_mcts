@@ -68,6 +68,8 @@ class MCTS:
         self.ROOT = self.nodes[0]
         self.CURT = self.ROOT
         self.weight = None
+        self.explorations = {'rate': 0.05}        
+        self.topology = [([i] + [(i+1)%4]*4) for i in range(4)]
         self.init_train()
 
 
@@ -80,13 +82,14 @@ class MCTS:
 
         print("\ncollect " + str(len(self.TASK_QUEUE)) + " nets for initializing MCTS")
 
-    def re_init_tree(self):
+    def re_init_tree(self, mode=None):
         with open('search_space_mnist', 'rb') as file:
-            search_space = pickle.load(file)
-        different_elements = [x for x in search_space if x not in self.search_space]
-        self.search_space += different_elements
+            self.search_space = pickle.load(file)   
         self.TASK_QUEUE = []
+        self.sample_nodes = []
+        self.explorations['rate'] -= 0.005
         self.stages += 1 
+        
         sorted_changes = [k for k, v in sorted(self.samples.items(), key=lambda x: x[1], reverse=True)]
         if self.stages == 1:
             best_change = [eval(sorted_changes[0])]
@@ -95,20 +98,29 @@ class MCTS:
                 if type(eval(k)[0]) == type([]) and len(eval(k)) == self.stages:
                     best_change = eval(k)
                     break               
-        self.ROOT.base_code = best_change
+        if mode is None:
+            self.ROOT.base_code = best_change
+        else:
+            self.ROOT.base_code = best_change[1:]
+            self.stages -= 1
+            self.reset_node_data()
+            self.samples = {}
+
         qubits = [code[0] for code in self.ROOT.base_code]
-        design = translator(best_change, 'full')
-        best_model, _ = Scheme(design, 'init', 30)
+        design = translator(self.ROOT.base_code, 'full')
+        best_model, _ = Scheme(design, None, 30)
         self.weight = best_model.state_dict()
-        for i in range(0, 50):
+        for i in range(0, 30):
             net = random.choice(self.search_space)
             while net[0] in qubits:
-                net = random.choice(self.search_space)           
+                net = random.choice(self.search_space)
+            self.search_space.remove(net)       
             self.TASK_QUEUE.append(net)
             self.sample_nodes.append('random')
 
-        print("\ncollect " + str(len(self.TASK_QUEUE)) + " nets for re-initializing MCTS {}".format(best_change))
+        print("\ncollect " + str(len(self.TASK_QUEUE)) + " nets for re-initializing MCTS {}".format(self.ROOT.base_code))
 
+    
 
     def dump_all_states(self, num_samples):
         node_path = 'states/mcts_agent'
@@ -196,17 +208,22 @@ class MCTS:
                 else:
                     _, report = Scheme(design, self.weight)
 
-                maeinv = 1 * report['mae']
+                acc = 1 * report['mae']
 
-                self.DISPATCHED_JOB[job_str] = maeinv
-                self.samples[job_str]        = maeinv
-                self.mae_list.append(maeinv)
+                self.DISPATCHED_JOB[job_str] = acc
+                if type(job[0]) == type([]):
+                    job = job[-1]
+                exploration = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
+                gate_reduced = job.count(job[0]) - 1
+                p_acc = acc + (exploration + gate_reduced) * self.explorations['rate']
+                self.samples[job_str] = p_acc
+                # self.explorations[job_str]   = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
+                self.mae_list.append(acc)
 
                 with open('results.csv', 'a+', newline='') as res:
                     writer = csv.writer(res)
-
-                    metrics = maeinv
-                    writer.writerow([len(self.samples), job_str, sample_node, metrics])                
+                    metrics = acc
+                    writer.writerow([len(self.samples), job_str, sample_node, metrics, p_acc])
 
             except Exception as e:
                 print(e)
@@ -217,18 +234,23 @@ class MCTS:
 
     def search(self):        
 
-        while len(self.search_space) > 0 and self.ITERATION < 40:
+        while len(self.search_space) > 0 and self.ITERATION < 21:
             # save current state
             if self.ITERATION > 0:
                 self.dump_all_states(len(self.samples))
             print("\niteration:", self.ITERATION)
-
-            if (self.ITERATION % 10 == 0) and (self.ITERATION != 0):            
-                self.re_init_tree()
+            
+            if (self.ITERATION % 10 == 0) and (self.ITERATION != 0):
+                if self.ITERATION == 20:            
+                    self.re_init_tree('restart')
+                else:
+                    self.re_init_tree()
                 for i in range(len(self.TASK_QUEUE)):
                     net = self.ROOT.base_code.copy()
                     net.append(self.TASK_QUEUE[i])
                     self.TASK_QUEUE[i] = net
+            
+            
 
             # if self.ROOT.base_code != None:
             #     for i in range(len(self.TASK_QUEUE)):
@@ -337,7 +359,7 @@ if __name__ == '__main__':
     if os.path.isfile('results.csv') == False:
         with open('results.csv', 'w+', newline='') as res:
             writer = csv.writer(res)
-            writer.writerow(['sample_id', 'arch_code', 'sample_node', 'ACC'])
+            writer.writerow(['sample_id', 'arch_code', 'sample_node', 'ACC', 'p_ACC'])
 
     # agent = MCTS(search_space, 5, arch_code_len)
     # agent.search()
