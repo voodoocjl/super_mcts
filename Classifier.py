@@ -49,7 +49,7 @@ class Classifier:
         self.maeinv           = None
         self.labels           = None
         self.mean             = 0        
-        # self.repeat           = 2
+        self.period           = 10
 
 
     def update_samples(self, latest_samples, mean):
@@ -58,7 +58,7 @@ class Classifier:
         nets_maeinv  = []        
         for k, v in latest_samples.items():
             net = json.loads(k)
-            # RNN            
+            # RNN
             net = gen_arch(net)
 
             sampled_nets.append(net)
@@ -79,7 +79,7 @@ class Classifier:
 
 
     def train(self):
-        if self.training_counter == 0:
+        if self.training_counter % 10 == 0:
             self.epochs = 3000
         else:
             self.epochs = 1000
@@ -101,7 +101,8 @@ class Classifier:
                 outputs = self.model(x)                
                 loss_mae = self.loss_fn(outputs[:, 0], y.reshape(-1))
                 loss_t = self.loss_fn(outputs[:, -1], z.reshape(-1))
-                loss = loss_mae + loss_t
+                # loss = loss_mae + loss_t
+                loss = loss_t
                 loss.backward()  # back props
                 nn.utils.clip_grad_norm_(self.model.parameters(), 5)
                 self.optimizer.step()  # update the parameters

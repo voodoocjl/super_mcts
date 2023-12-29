@@ -130,10 +130,10 @@ def Scheme(design, weight=None, epochs=None):
 if __name__ == '__main__':
     change_code = None
     change_code = [1, 1, 3, 0, 1]  #0.717825355
-    change_code = [[2, 3, 3, 3, 2], [0, 1, 1, 1, 2], [1, 2, 1, 2, 2], [3, 1, 0, 1, 3]]
+    change_code = [[2, 0, 1, 1, 1], [1, 0, 0, 0, 0], [0, 2, 0, 3, 3]]
 
     # design = translator(change_code)    
     # best_model, report = Scheme(design)
 
-    design = translator(change_code, 'full')    
-    best_model, report = Scheme(design, 'init', 20)
+    design = translator(change_code, 'full')
+    best_model, report = Scheme(design, None, 20)

@@ -46,7 +46,8 @@ class MCTS:
         self.MAX_MAEINV     = 0
         self.MAX_SAMPNUM    = 0
         self.sample_nodes   = []
-        self.stages         = 0               
+        self.stages         = 0
+        self.sampling_num   = 0               
 
         self.tree_height    = tree_height
 
@@ -88,8 +89,11 @@ class MCTS:
         self.TASK_QUEUE = []
         self.sample_nodes = []
         self.explorations['rate'] -= 0.005
-        self.stages += 1 
-        
+        self.stages += 1
+        for i in self.nodes:
+            i.x_bar = float("inf")
+
+        epochs = 30
         sorted_changes = [k for k, v in sorted(self.samples.items(), key=lambda x: x[1], reverse=True)]
         if self.stages == 1:
             best_change = [eval(sorted_changes[0])]
@@ -98,18 +102,32 @@ class MCTS:
                 if type(eval(k)[0]) == type([]) and len(eval(k)) == self.stages:
                     best_change = eval(k)
                     break               
+        design = translator(best_change, 'full')
+        best_model, report = Scheme(design, None, epochs)      
+
+        with open('results_30_epoch.csv', 'a+', newline='') as res:
+            writer = csv.writer(res)
+            metrics = report['mae']
+            writer.writerow([best_change, metrics])
+        
         if mode is None:
             self.ROOT.base_code = best_change
         else:
             self.ROOT.base_code = best_change[1:]
             self.stages -= 1
-            self.reset_node_data()
+            # self.reset_node_data()        # attention!
+            self.sampling_num += len(self.samples)
             self.samples = {}
+            design = translator(self.ROOT.base_code, 'full')
+            best_model, report = Scheme(design, None, epochs)
+            with open('results_30_epoch.csv', 'a+', newline='') as res:
+                writer = csv.writer(res)
+                metrics = report['mae']
+                writer.writerow([self.ROOT.base_code, metrics])
 
-        qubits = [code[0] for code in self.ROOT.base_code]
-        design = translator(self.ROOT.base_code, 'full')
-        best_model, _ = Scheme(design, None, 30)
+        qubits = [code[0] for code in self.ROOT.base_code]        
         self.weight = best_model.state_dict()
+        
         for i in range(0, 30):
             net = random.choice(self.search_space)
             while net[0] in qubits:
@@ -223,7 +241,8 @@ class MCTS:
                 with open('results.csv', 'a+', newline='') as res:
                     writer = csv.writer(res)
                     metrics = acc
-                    writer.writerow([len(self.samples), job_str, sample_node, metrics, p_acc])
+                    num_id = self.sampling_num + len(self.samples)
+                    writer.writerow([num_id, job_str, sample_node, metrics, p_acc])
 
             except Exception as e:
                 print(e)
@@ -232,16 +251,17 @@ class MCTS:
                 print("current queue length:", len(self.TASK_QUEUE))
 
 
-    def search(self):        
-
-        while len(self.search_space) > 0 and self.ITERATION < 21:
+    def search(self):
+        while len(self.search_space) > 0 and self.ITERATION < 61:
             # save current state
             if self.ITERATION > 0:
                 self.dump_all_states(len(self.samples))
             print("\niteration:", self.ITERATION)
+
+            period = 10
             
-            if (self.ITERATION % 10 == 0) and (self.ITERATION != 0):
-                if self.ITERATION == 20:            
+            if (self.ITERATION % period == 0) and (self.ITERATION != 0):
+                if (self.ITERATION % (2*period)) == 0:            
                     self.re_init_tree('restart')
                 else:
                     self.re_init_tree()
@@ -249,16 +269,7 @@ class MCTS:
                     net = self.ROOT.base_code.copy()
                     net.append(self.TASK_QUEUE[i])
                     self.TASK_QUEUE[i] = net
-            
-            
-
-            # if self.ROOT.base_code != None:
-            #     for i in range(len(self.TASK_QUEUE)):
-            #         net = self.ROOT.base_code.copy()
-            #         net.append(self.TASK_QUEUE[i])
-            #         self.TASK_QUEUE[i] = net
-                
-
+           
             # evaluate jobs:
             print("\nevaluate jobs...")
             self.evaluate_jobs()
@@ -360,6 +371,11 @@ if __name__ == '__main__':
         with open('results.csv', 'w+', newline='') as res:
             writer = csv.writer(res)
             writer.writerow(['sample_id', 'arch_code', 'sample_node', 'ACC', 'p_ACC'])
+
+    if os.path.isfile('results_30_epoch.csv') == False:
+        with open('results_30_epoch.csv', 'w+', newline='') as res:
+            writer = csv.writer(res)
+            writer.writerow(['arch_code', 'ACC'])
 
     # agent = MCTS(search_space, 5, arch_code_len)
     # agent.search()

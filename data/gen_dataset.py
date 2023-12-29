@@ -23,8 +23,8 @@ for file in files:
             arch_code.append(row[2])
             energy.append(row[4])
         try:
-            # assert arch_code[0] == 'arch_code' and energy[0] == 'test_mae'
             assert arch_code[0] == 'arch_code' and energy[0] == 'test_acc'
+            # assert arch_code[0] == 'arch_code' and energy[0] == 'ACC'
         except AssertionError:
             print(file, 'is a wrong csv files')
             continue
