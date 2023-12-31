@@ -74,7 +74,7 @@ def evaluate(model, data_loader, args):
     metrics = accuracy    
     return metrics
 
-def Scheme(design, weight=None, epochs=None):
+def Scheme(design, weight='base', epochs=3):
     random.seed(42)
     np.random.seed(42)
     torch.random.manual_seed(42)
@@ -89,10 +89,10 @@ def Scheme(design, weight=None, epochs=None):
     train_loader, val_loader, test_loader = MNISTDataLoaders(args)
     model = QNet(args, design).to(args.device)
     if weight != 'init':
-        if weight != None:
+        if weight != 'base':
             model.load_state_dict(weight, strict= False)
         else:
-            model.load_state_dict(torch.load('base_weight'))
+            model.load_state_dict(torch.load('base_weight_swap'))
     criterion = nn.NLLLoss()
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
@@ -123,17 +123,18 @@ def Scheme(design, weight=None, epochs=None):
     report = {'train_loss_list': train_loss_list, 'val_loss_list': val_loss_list,
               'best_val_loss': best_val_loss, 'mae': metrics}
     
-    # torch.save(best_model.state_dict(), 'base_weight')
+    # torch.save(best_model.state_dict(), 'base_weight_bad')
     return best_model, report
 
 
 if __name__ == '__main__':
     change_code = None
-    change_code = [1, 1, 3, 0, 1]  #0.717825355
-    change_code = [[2, 0, 1, 1, 1], [1, 0, 0, 0, 0], [0, 2, 0, 3, 3]]
+    # change_code = [1, 1, 3, 0, 1]  #0.717825355
+    change_code = [3, 0, 2, 2, 0]
 
-    # design = translator(change_code)    
-    # best_model, report = Scheme(design)
+    design = translator(change_code)    
+    best_model, report = Scheme(design, 'base', 30)
 
-    design = translator(change_code, 'full')
-    best_model, report = Scheme(design, None, 20)
+    # design = translator(change_code, 'full')
+    # best_model, report = Scheme(design, 'base', 30)
+    # torch.save(best_model.state_dict(), 'base_weight_swap')

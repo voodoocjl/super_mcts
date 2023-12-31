@@ -68,8 +68,8 @@ class MCTS:
 
         self.ROOT = self.nodes[0]
         self.CURT = self.ROOT
-        self.weight = None
-        self.explorations = {'rate': 0.05}        
+        self.weight = 'base'
+        self.explorations = {'rate': 0.005}        
         self.topology = [([i] + [(i+1)%4]*4) for i in range(4)]
         self.init_train()
 
@@ -88,12 +88,13 @@ class MCTS:
             self.search_space = pickle.load(file)   
         self.TASK_QUEUE = []
         self.sample_nodes = []
-        self.explorations['rate'] -= 0.005
+        # self.explorations['rate'] -= 0.005
         self.stages += 1
         for i in self.nodes:
             i.x_bar = float("inf")
 
         epochs = 30
+        strategy = 'base'
         sorted_changes = [k for k, v in sorted(self.samples.items(), key=lambda x: x[1], reverse=True)]
         if self.stages == 1:
             best_change = [eval(sorted_changes[0])]
@@ -103,12 +104,12 @@ class MCTS:
                     best_change = eval(k)
                     break               
         design = translator(best_change, 'full')
-        best_model, report = Scheme(design, None, epochs)      
+        best_model, report = Scheme(design, strategy, epochs)      
 
         with open('results_30_epoch.csv', 'a+', newline='') as res:
             writer = csv.writer(res)
             metrics = report['mae']
-            writer.writerow([best_change, metrics])
+            writer.writerow([self.ITERATION, best_change, metrics])
         
         if mode is None:
             self.ROOT.base_code = best_change
@@ -116,14 +117,14 @@ class MCTS:
             self.ROOT.base_code = best_change[1:]
             self.stages -= 1
             # self.reset_node_data()        # attention!
-            self.sampling_num += len(self.samples)
-            self.samples = {}
+            # self.sampling_num += len(self.samples)
+            # self.samples = {}
             design = translator(self.ROOT.base_code, 'full')
-            best_model, report = Scheme(design, None, epochs)
+            best_model, report = Scheme(design, strategy, epochs)
             with open('results_30_epoch.csv', 'a+', newline='') as res:
                 writer = csv.writer(res)
                 metrics = report['mae']
-                writer.writerow([self.ROOT.base_code, metrics])
+                writer.writerow([self.ITERATION, self.ROOT.base_code, metrics])
 
         qubits = [code[0] for code in self.ROOT.base_code]        
         self.weight = best_model.state_dict()
@@ -241,7 +242,8 @@ class MCTS:
                 with open('results.csv', 'a+', newline='') as res:
                     writer = csv.writer(res)
                     metrics = acc
-                    num_id = self.sampling_num + len(self.samples)
+                    # num_id = self.sampling_num + len(self.samples)
+                    num_id = len(self.samples)
                     writer.writerow([num_id, job_str, sample_node, metrics, p_acc])
 
             except Exception as e:
@@ -255,13 +257,13 @@ class MCTS:
         while len(self.search_space) > 0 and self.ITERATION < 61:
             # save current state
             if self.ITERATION > 0:
-                self.dump_all_states(len(self.samples))
+                self.dump_all_states(self.sampling_num + len(self.samples))
             print("\niteration:", self.ITERATION)
 
             period = 10
             
             if (self.ITERATION % period == 0) and (self.ITERATION != 0):
-                if (self.ITERATION % (2*period)) == 0:            
+                if self.ITERATION >= (2*period):            
                     self.re_init_tree('restart')
                 else:
                     self.re_init_tree()
@@ -362,10 +364,10 @@ if __name__ == '__main__':
     print("\nthe length of base architecture codes:", arch_code_len)
     print("total architectures:", len(search_space))
 
-    with open('data/mnist_dataset', 'rb') as file:
+    with open('data/mnist_dataset_swap', 'rb') as file:
         dataset = pickle.load(file)
-    # with open('data/chemistry_validation', 'rb') as file:
-    #     validation = pickle.load(file)    
+      
+    # dataset = {}
 
     if os.path.isfile('results.csv') == False:
         with open('results.csv', 'w+', newline='') as res:
@@ -375,7 +377,7 @@ if __name__ == '__main__':
     if os.path.isfile('results_30_epoch.csv') == False:
         with open('results_30_epoch.csv', 'w+', newline='') as res:
             writer = csv.writer(res)
-            writer.writerow(['arch_code', 'ACC'])
+            writer.writerow(['iteration', 'arch_code', 'ACC'])
 
     # agent = MCTS(search_space, 5, arch_code_len)
     # agent.search()

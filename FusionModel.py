@@ -91,6 +91,10 @@ class TQLayer(tq.QuantumModule):
         x = F.avg_pool2d(x, 6)  # 'down_sample_kernel_size' = 6
         x = x.view(bsz, -1)
 
+        tmp = x[:, 4:8].clone()
+        x[:, 4:8] = x[:, 8:12]
+        x[:, 8:12] = tmp
+
         qdev = tq.QuantumDevice(n_wires=self.n_wires, bsz=bsz, device=x.device)
 
         # encode input image with '4x4_ryzxy' gates        
