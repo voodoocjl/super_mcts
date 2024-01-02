@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import accuracy_score
-from FusionModel import gen_arch
+from FusionModel import gen_arch, prune_single
 from Network import FCN, ACN, RNN, Attention
 from Classifier import get_label
 
@@ -19,7 +19,7 @@ random.seed(seed)
 np.random.seed(seed)
 torch.random.manual_seed(seed)
 
-with open('data/mosi_dataset', 'rb') as file:
+with open('data/mnist_dataset_swap_pruning', 'rb') as file:
     dataset = pickle.load(file)
 
 def normalize(x):
@@ -27,18 +27,20 @@ def normalize(x):
     return x
 
 def transform_2d(x, repeat):
-    # x = x.reshape(-1, 5, 7)
-    x = x.reshape(-1, repeat + 1, 8)
+    # x = x.reshape(x.shape[0], -1, 4)
+    # x = x.reshape(-1, repeat + 1, 8)
+    x = torch.cat((x, torch.flip(x, dims=[1])), dim=1)
     return x
-    
 
-# base_code = [1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 0]
-base_code = [5, 1, 2, 3, 4, 5, 6, 0]
 arch_code, mae = [], []
 repeat = 2
 for key in dataset:
-    # arch_code.append(gen_arch(eval(key), base_code))
-    arch_code.append(base_code + ([0, 0] + eval(key)) * repeat)
+    net = gen_arch(eval(key))
+    single = prune_single(net)
+    net = np.array(net).reshape(4, -1)
+    net = np.concatenate((single, net), axis=1)
+    arch_code.append(net)
+    # arch_code.append(base_code + ([0, 0] + eval(key)) * repeat)
     mae.append(dataset[key])
 arch_code = torch.from_numpy(np.asarray(arch_code, dtype=np.float32))
 arch_code = normalize(arch_code)
@@ -49,9 +51,9 @@ arch_code = transform_2d(arch_code, repeat)
 # model = ACN(32, pooling_size=(3, 3), output_size=2)
 model = RNN(8, 16, 2)
 
-Epoch = 3001
+Epoch = 2001
 true_label = get_label(mae)
-t_size = 5000
+t_size = 100
 device = 'cpu'
 
 def data(arch_code_t):
@@ -93,7 +95,7 @@ def train(model):
             pred = model(x) 
             loss_s = loss_fn(pred[:, 0], y)  
             loss_e = loss_fn(pred[:, -1], z)             
-            train_loss = loss_e + loss_s            
+            train_loss = loss_e  #+ loss_s            
             optimizer.zero_grad()
             train_loss.backward()
             optimizer.step()        

@@ -76,12 +76,14 @@ def evaluate(model, data_loader, args):
     metrics = accuracy    
     return metrics
 
-def Scheme(design, weight=None):
+def Scheme(design, epochs=None, weight=None):
     random.seed(42)
     np.random.seed(42)
     torch.random.manual_seed(42)
 
     args = Arguments()
+    if epochs == None:
+        epochs = args.epochs
     if torch.cuda.is_available() and args.device == 'cuda':
         print("using cuda device")
     else:
@@ -91,7 +93,7 @@ def Scheme(design, weight=None):
     if weight != None:
         model.load_state_dict(weight, strict= False)
     else:
-        model.load_state_dict(torch.load('base_weight'))
+        model.load_state_dict(torch.load('base_weight_swap'))
     criterion = nn.NLLLoss()
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
@@ -99,7 +101,7 @@ def Scheme(design, weight=None):
     best_val_loss = 0
 
     start = time.time()
-    for epoch in range(args.epochs):
+    for epoch in range(epochs):
         train(model, train_loader, optimizer, criterion, args)
         train_loss = test(model, train_loader, criterion, args)
         train_loss_list.append(train_loss)
@@ -135,11 +137,11 @@ def search(train_space, index, size):
     j = index * size + i 
     
     
-    while len(train_space) > 0:
+    while i < len(train_space):
         net = train_space[i]
         print('Net', j, ":", net)
-        design = translator(net)
-        best_model, report = Scheme(design)
+        design = translator(net, 'full')
+        best_model, report = Scheme(design, 1)
         with open(filename, 'a+', newline='') as res:
             writer = csv.writer(res)
             best_val_loss = report['best_val_loss']

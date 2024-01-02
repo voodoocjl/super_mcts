@@ -7,7 +7,7 @@ import time
 from sklearn.metrics import accuracy_score, f1_score
 from MNIST import MNISTDataLoaders
 from FusionModel import QNet
-from FusionModel import translator
+from FusionModel import translator, prune_single,gen_arch
 from Arguments import Arguments
 import random
 
@@ -74,7 +74,7 @@ def evaluate(model, data_loader, args):
     metrics = accuracy    
     return metrics
 
-def Scheme(design, weight='base', epochs=3):
+def Scheme(design, weight='base', epochs=None):
     random.seed(42)
     np.random.seed(42)
     torch.random.manual_seed(42)
@@ -129,12 +129,16 @@ def Scheme(design, weight='base', epochs=3):
 
 if __name__ == '__main__':
     change_code = None
-    # change_code = [1, 1, 3, 0, 1]  #0.717825355
-    change_code = [3, 0, 2, 2, 0]
+    change_code = [1, 1, 3, 0, 1]  #0.717825355
+    change_code = [[2, 1, 2, 2, 3], [3, 0, 1, 2, 2]]
 
-    design = translator(change_code)    
-    best_model, report = Scheme(design, 'base', 30)
+
+    net = gen_arch(change_code)
+    print(prune_single(net))
+
+    design = translator(change_code, 'full')
+    best_model, report = Scheme(design, 'base', 1)
 
     # design = translator(change_code, 'full')
     # best_model, report = Scheme(design, 'base', 30)
-    # torch.save(best_model.state_dict(), 'base_weight_swap')
+    # torch.save(best_model.state_dict(), 'base_weight_swap_1')
