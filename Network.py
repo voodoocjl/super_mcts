@@ -3,6 +3,30 @@ from torch import nn
 from Arguments import Arguments
 args = Arguments()
 
+class Linear(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(Linear, self).__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, output_dim)                                   
+            )
+        
+    def forward(self, x):
+        y = self.network(x)
+        # y[:,-1] = torch.sigmoid(y[:,-1])        
+        return y
+
+class Mlp(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super(Mlp, self).__init__()
+        self.network = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),       
+            nn.Sigmoid(),
+            nn.Linear(hidden_dim, output_dim)                     
+            )
+        
+    def forward(self, x):
+        y = self.network(x) 
+        return y
 
 class FCN(nn.Module):
     """Fully Convolutional Network"""
@@ -95,3 +119,7 @@ def positional_encoding(max_len, d_model):
     cosines = torch.cos(angle_rads[:, 1::2])
     pos_encoding = torch.cat([sines, cosines], dim=-1)
     return pos_encoding
+
+def normalize(x):
+    x = (x - torch.mean(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)) / torch.std(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)
+    return x

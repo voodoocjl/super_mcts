@@ -7,7 +7,7 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import accuracy_score
 from FusionModel import gen_arch, prune_single
-from Network import FCN, ACN, RNN, Attention
+from Network import FCN, ACN, RNN, Attention, Linear, Mlp
 from Classifier import get_label
 
 
@@ -20,10 +20,11 @@ np.random.seed(seed)
 torch.random.manual_seed(seed)
 
 with open('data/mnist_dataset_swap_pruning', 'rb') as file:
+# with open('data/mnist_dataset', 'rb') as file:
     dataset = pickle.load(file)
 
 def normalize(x):
-    x = (x - torch.mean(x).unsqueeze(-1)) / torch.std(x).unsqueeze(-1)
+    x = (x - torch.mean(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)) / torch.std(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)
     return x
 
 def transform_2d(x, repeat):
@@ -46,9 +47,14 @@ arch_code = torch.from_numpy(np.asarray(arch_code, dtype=np.float32))
 arch_code = normalize(arch_code)
 mae =  torch.from_numpy(np.asarray(mae, dtype=np.float32))
 
-arch_code = transform_2d(arch_code, repeat)
+
+# arch_code = arch_code.reshape(arch_code.shape[0], -1)
+# # model = Linear(arch_code.shape[1],2)
+# model = Mlp(arch_code.shape[1], 32, 2)
 # model = FCN(8, 2)
 # model = ACN(32, pooling_size=(3, 3), output_size=2)
+
+arch_code = transform_2d(arch_code, repeat)
 model = RNN(8, 16, 2)
 
 Epoch = 2001
@@ -135,8 +141,9 @@ print("dataset size:", len(arch_code))
 print("training size:", len(arch_code_train))
 print("test size:", len(arch_code_test))
 
-s = time.time()
-acc_list = train(model)
-e = time.time()
-print('time: ', e-s)
-pred_label = test(model)
+for i in range(5):
+    s = time.time()
+    acc_list = train(model)
+    e = time.time()
+    print('time: ', e-s)
+    pred_label = test(model)

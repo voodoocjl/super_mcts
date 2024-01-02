@@ -8,6 +8,7 @@ from math import pi
 import torch.nn.functional as F
 from torchquantum.encoding import encoder_op_list_name_dict
 from Arguments import Arguments
+import numpy as np
 
 args = Arguments()
 
@@ -16,18 +17,42 @@ def gen_arch(change_code, base_code=args.base_code):
     if change_code != None:
         if type(change_code[0]) != type([]):
             change_code = [change_code]
-        change_qubit = change_code[-1][0]
-        if change_code is not None:
-            for i in range(len(change_code)):
-                q = change_code[i][0]  # the qubit changed
-                for i, t in enumerate(change_code[i][1:]):
-                    arch_code[q + i * args.n_qubits] = t
+                
+        for i in range(len(change_code)):
+            q = change_code[i][0]  # the qubit changed
+            for i, t in enumerate(change_code[i][1:]):
+                arch_code[q + i * args.n_qubits] = t
     return arch_code
 
+def prune_single(net):
+    net_arr = np.array(net).reshape((args.n_layers, args.n_qubits))
+    tmp = net_arr - [i for i in range(args.n_qubits)]        # posiitons of all discarded CU3
+    index = np.where(tmp == 0)
+    net_arr[index] = -1
+    single = np.ones((args.n_qubits, args.n_qubits)).astype(int)
+    
+    for i in range(args.n_layers):
+        unique, counts = np.unique(net_arr[i], return_counts=True)
+        redundant = unique[counts > 1]   # remove -1
+        redundant[redundant != -1]        
+        single[i][redundant] = 0
+
+    return single
 
 def translator(change_code, trainable='partial', base_code=args.base_code):    
     net = gen_arch(change_code, base_code)
+    net_arr = np.array(net).reshape((args.n_layers, args.n_qubits))
+    tmp = net_arr - [i for i in range(4)]        # posiitons of all discarded CU3
+    index = np.where(tmp == 0)
+    net_arr[index] = -1
     updated_design = {}
+    
+    for i in range(args.n_layers):
+        unique, counts = np.unique(net_arr[i], return_counts=True)
+        redundant = unique[counts > 1]   # remove -1
+        redundant[redundant != -1]        
+        updated_design['layer '+ str(i)] = list(redundant)
+
     if trainable == 'full' or change_code is None:
         updated_design['change_qubit'] = None
     else:
@@ -38,10 +63,9 @@ def translator(change_code, trainable='partial', base_code=args.base_code):
     updated_design['n_layers'] = args.n_layers
 
     for layer in range(updated_design['n_layers']):
-        # categories of single-qubit parametric gates
+    # categories of single-qubit parametric gates        
         for i in range(args.n_qubits):
             updated_design['rot' + str(layer) + str(i)] = 'U3'
-
         # categories and positions of entangled gates
         for j in range(args.n_qubits):
             updated_design['enta' + str(layer) + str(j)] = ('CU3', [j, net[j + layer * args.n_qubits]])
@@ -58,7 +82,7 @@ class TQLayer(tq.QuantumModule):
         self.encoder = tq.GeneralEncoder(encoder_op_list_name_dict['4x4_ryzxy'])
 
         self.rots, self.entas = tq.QuantumModuleList(), tq.QuantumModuleList()
-
+        # self.design['change_qubit'] = 3
         self.q_params_rot, self.q_params_enta = [], []
         for i in range(self.args.n_qubits):
             self.q_params_rot.append(pi * torch.rand(3 * self.design['n_layers'])) # each U3 gate needs 3 parameters
@@ -100,9 +124,10 @@ class TQLayer(tq.QuantumModule):
         # encode input image with '4x4_ryzxy' gates        
         self.encoder(qdev, x)
 
-        for layer in range(self.design['n_layers']):                       
+        for layer in range(self.design['n_layers']):
             for j in range(self.n_wires):
-                self.rots[j + layer * self.n_wires](qdev, wires=j)            
+                if j not in self.design['layer '+str(layer)]:
+                    self.rots[j + layer * self.n_wires](qdev, wires=j)
             for j in range(self.n_wires):
                 if self.design['enta' + str(layer) + str(j)][1][0] != self.design['enta' + str(layer) + str(j)][1][1]:
                     self.entas[j + layer * self.n_wires](qdev, wires=self.design['enta' + str(layer) + str(j)][1])

@@ -155,10 +155,15 @@ if __name__ == '__main__':
     
     train_space = []
     filename = 'search_space_mnist'
+    filename = 'search_space_mnist_2steps'
 
     with open(filename, 'rb') as file:
         train_space = pickle.load(file)
     
+    # # base_change
+    # change = [3, 0, 3, 3, 2]
+    # train_space = [[change, net] for net in train_space if net[0]!=change[0]]
+
     num_processes = 4
     size = int(len(train_space) / num_processes)
     space = []

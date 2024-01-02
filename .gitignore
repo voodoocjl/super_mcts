@@ -184,4 +184,5 @@ backup/all_layers/states/
 backup/compact/states
 .vscode/extensions.json
 data/mnist/
+backup/
 

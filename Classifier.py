@@ -6,8 +6,8 @@ import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import accuracy_score
-from Network import Attention, RNN, transform_2d
-from FusionModel import translator, gen_arch
+from Network import Attention, RNN, transform_2d, normalize
+from FusionModel import translator, gen_arch, prune_single
 
 
 torch.cuda.is_available = lambda : False
@@ -36,7 +36,7 @@ class Classifier:
         self.node_layer       = ceil(log2(node_id + 2) - 1)
         # self.model            = Linear(self.input_dim_2d, 2)
         # self.model            = Mlp(self.input_dim_2d, 6, 2)
-        self.model            = RNN(input_dim-1, 16, 2)
+        self.model            = RNN(2*(input_dim-1), 16, 2)
         if torch.cuda.is_available():
             self.model.cuda()
         self.loss_fn          = nn.MSELoss()
@@ -55,15 +55,22 @@ class Classifier:
     def update_samples(self, latest_samples, mean):
         assert type(latest_samples) == type(self.samples)
         sampled_nets = []
-        nets_maeinv  = []        
+        nets_maeinv  = []
+        n_layers = 4
         for k, v in latest_samples.items():
             net = json.loads(k)
             # RNN
             net = gen_arch(net)
+            single = prune_single(net)
+            net = np.array(net).reshape(n_layers, -1)
+            net = np.concatenate((single, net), axis=1)     
 
             sampled_nets.append(net)
             nets_maeinv.append(v)
-        self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32).reshape(len(sampled_nets), -1, self.input_dim-1))
+        self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32))
+        self.nets = normalize(self.nets)
+        
+        # self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32).reshape(len(sampled_nets), -1, self.input_dim-1))
 
         
         # # attention
@@ -79,7 +86,7 @@ class Classifier:
 
 
     def train(self):
-        if self.training_counter % 10 == 0:
+        if self.training_counter == 0:
             self.epochs = 3000
         else:
             self.epochs = 1000
@@ -119,12 +126,18 @@ class Classifier:
     def predict(self, remaining):
         assert type(remaining) == type({})
         remaining_archs = []
+        n_layers = 4
         for k, v in remaining.items():
             net = json.loads(k)
             # RNN            
             net = gen_arch(net)
+            single = prune_single(net)
+            net = np.array(net).reshape(n_layers, -1)
+            net = np.concatenate((single, net), axis=1)            
             remaining_archs.append(net)
-        remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32).reshape(len(remaining_archs), -1, self.input_dim-1))
+        remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32))
+        remaining_archs = normalize(remaining_archs)
+        # remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32).reshape(len(remaining_archs), -1, self.input_dim-1))
         if torch.cuda.is_available():
             remaining_archs = remaining_archs.cuda()
         # outputs = self.model(change_code(remaining_archs))
