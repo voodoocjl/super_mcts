@@ -36,6 +36,7 @@ class MCTS:
         self.Cp             = 0.2
         self.nodes          = []
         self.samples        = {}
+        self.samples_latest = {}
         self.TASK_QUEUE     = []
         self.DISPATCHED_JOB = {}
         self.mae_list    = []
@@ -95,16 +96,17 @@ class MCTS:
 
         epochs = 30
         strategy = 'base'
-        sorted_changes = [k for k, v in sorted(self.samples.items(), key=lambda x: x[1], reverse=True)]
-        if self.stages == 1:
-            best_change = [eval(sorted_changes[0])]
-        else:
-            for k in sorted_changes:
-                if type(eval(k)[0]) == type([]) and len(eval(k)) == self.stages:
-                    best_change = eval(k)
-                    break               
+        sorted_changes = [k for k, v in sorted(self.samples_latest.items(), key=lambda x: x[1], reverse=True)]
+        sorted_changes = [change for change in sorted_changes if len(eval(change)) == self.stages]
+
+        # pick best 3 and randomly choose one
+        random.seed(self.ITERATION)
+        
+        best_changes = [eval(sorted_changes[i]) for i in range(3)]
+        best_change = random.choice(best_changes)
         design = translator(best_change, 'full')
-        best_model, report = Scheme(design, strategy, epochs)      
+        best_model, report = Scheme(design, strategy, epochs)
+        self.samples_latest = {}
 
         with open('results_30_epoch.csv', 'a+', newline='') as res:
             writer = csv.writer(res)
@@ -120,7 +122,7 @@ class MCTS:
             # self.sampling_num += len(self.samples)
             # self.samples = {}
             design = translator(self.ROOT.base_code, 'full')
-            best_model, report = Scheme(design, strategy, epochs)
+            best_model, report = Scheme(design, strategy)
             with open('results_30_epoch.csv', 'a+', newline='') as res:
                 writer = csv.writer(res)
                 metrics = report['mae']
@@ -128,7 +130,9 @@ class MCTS:
 
         qubits = [code[0] for code in self.ROOT.base_code]        
         self.weight = best_model.state_dict()
-        
+
+        random.seed(self.ITERATION)
+
         for i in range(0, 30):
             net = random.choice(self.search_space)
             while net[0] in qubits:
@@ -137,9 +141,7 @@ class MCTS:
             self.TASK_QUEUE.append(net)
             self.sample_nodes.append('random')
 
-        print("\ncollect " + str(len(self.TASK_QUEUE)) + " nets for re-initializing MCTS {}".format(self.ROOT.base_code))
-
-    
+        print("\ncollect " + str(len(self.TASK_QUEUE)) + " nets for re-initializing MCTS {}".format(self.ROOT.base_code))    
 
     def dump_all_states(self, num_samples):
         node_path = 'states/mcts_agent'
@@ -216,26 +218,29 @@ class MCTS:
 
             try:
                 # print("\nget job from QUEUE:", job)
-
                 job_str = json.dumps(job)
-                design = translator(job)
+                design = translator(job, 'full')
                 # print("translated to:\n{}".format(design))
                 # print("\nstart training:")
                 if job_str in dataset:
                     report = {'mae': dataset.get(job_str)}
                     # print(report)
                 else:
-                    _, report = Scheme(design, self.weight)
-
+                    # _, report = Scheme(design, self.weight)
+                    _, report = Scheme(design)
                 acc = 1 * report['mae']
-
                 self.DISPATCHED_JOB[job_str] = acc
-                if type(job[0]) == type([]):
-                    job = job[-1]
+
+                if type(job[0]) != type([]):
+                    job = [job]
+
+                job_str = json.dumps(job)
+                job = job[-1]
                 exploration = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
                 gate_reduced = job.count(job[0]) - 1
                 p_acc = acc + (exploration + gate_reduced) * self.explorations['rate']
                 self.samples[job_str] = p_acc
+                self.samples_latest[job_str] = p_acc
                 # self.explorations[job_str]   = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
                 self.mae_list.append(acc)
 
@@ -260,10 +265,10 @@ class MCTS:
                 self.dump_all_states(self.sampling_num + len(self.samples))
             print("\niteration:", self.ITERATION)
 
-            period = 10
+            period = 5
             
-            if (self.ITERATION % period == 0) and (self.ITERATION != 0):
-                if self.ITERATION >= (2*period):            
+            if (self.ITERATION % period == 1): #and (self.ITERATION != 0):
+                if self.ITERATION >= (period+1):            
                     self.re_init_tree('restart')
                 else:
                     self.re_init_tree()
@@ -312,6 +317,7 @@ class MCTS:
             # nodes = [0, 3, 12, 15]
             # sampling_node(self, nodes, dataset, self.ITERATION)
 
+            random.seed(self.ITERATION)
             for i in range(0, 10):
                 # select
                 target_bin   = self.select()
@@ -320,7 +326,7 @@ class MCTS:
                 else:
                     qubits = [code[0] for code in self.ROOT.base_code]
                 sampled_arch = target_bin.sample_arch(qubits)                
-                # NOTED: the sampled arch can be None
+                # NOTED: the sampled arch can be None 
                 if sampled_arch is not None:                    
                     # push the arch into task queue
                     if json.dumps(sampled_arch) not in self.DISPATCHED_JOB:
@@ -352,10 +358,10 @@ class MCTS:
 
 
 if __name__ == '__main__':
-    # set random seed
+     # set random seed
     random.seed(42)
     np.random.seed(42)
-    torch.random.manual_seed(42)
+    torch.random.manual_seed(42)   
 
     with open('search_space_mnist', 'rb') as file:
         search_space = pickle.load(file)
@@ -364,7 +370,7 @@ if __name__ == '__main__':
     print("\nthe length of base architecture codes:", arch_code_len)
     print("total architectures:", len(search_space))
 
-    with open('data/mnist_dataset_swap', 'rb') as file:
+    with open('data/mnist_dataset_swap_pruning', 'rb') as file:
         dataset = pickle.load(file)
       
     # dataset = {}
@@ -389,7 +395,7 @@ if __name__ == '__main__':
     if files:
         files.sort(key=lambda x: os.path.getmtime(os.path.join(state_path, x)))
         node_path = os.path.join(state_path, files[-1])
-        # node_path = 'states/mcts_agent_340'
+        # node_path = 'states/mcts_agent_120'
         with open(node_path, 'rb') as json_data:
             agent = pickle.load(json_data)
         print("\nresume searching,", agent.ITERATION, "iterations completed before")
