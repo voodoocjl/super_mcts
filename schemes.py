@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 import time
 from sklearn.metrics import accuracy_score, f1_score
-from MNIST import MNISTDataLoaders
+from MNIST_tq import MNISTDataLoaders
 from FusionModel import QNet
 from FusionModel import translator, prune_single,gen_arch
 from Arguments import Arguments
@@ -19,14 +19,23 @@ def get_param_num(model):
 
 
 def display(metrics):
-    print("\nTest Accuracy: {}".format(metrics))
-    # print("Test correlation: {}".format(metrics['corr']))
+    RED = '\033[31m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    BLUE = '\033[34m'
+    MAGENTA = '\033[35m'
+    CYAN = '\033[36m'
+    WHITE = '\033[37m'
+    RESET = '\033[0m'
+
+    print(YELLOW + "\nTest Accuracy: {}".format(metrics) + RESET)
+
     
 def train(model, data_loader, optimizer, criterion, args):
     model.train()
-    for images, targets in data_loader:
-        images = images.to(args.device)
-        targets = targets.to(args.device)
+    for feed_dict in data_loader:
+        images = feed_dict['image'].to(args.device)
+        targets = feed_dict['digit'].to(args.device)    
         optimizer.zero_grad()
         output = model(images)
         loss = criterion(output, targets)        
@@ -39,13 +48,13 @@ def test(model, data_loader, criterion, args):
     target_all = torch.Tensor()
     output_all = torch.Tensor()
     with torch.no_grad():
-        for data_image, target in data_loader:
-            data_image = data_image.to(args.device)
-            target = target.to(args.device)
-            output = model(data_image)
-            instant_loss = criterion(output, target).item()
+        for feed_dict in data_loader:
+            images = feed_dict['image'].to(args.device)
+            targets = feed_dict['digit'].to(args.device)        
+            output = model(images)
+            instant_loss = criterion(output, targets).item()
             total_loss += instant_loss
-            target_all = torch.cat((target_all, target), dim=0)
+            target_all = torch.cat((target_all, targets), dim=0)
             output_all = torch.cat((output_all, output), dim=0) 
     total_loss /= len(data_loader)
     _, indices = output_all.topk(1, dim=1)
@@ -61,13 +70,14 @@ def evaluate(model, data_loader, args):
     metrics = {}
     
     with torch.no_grad():
-        for data_image, target in data_loader:
-            data_image, target = data_image.to(args.device), target.to(args.device)
-            output = model(data_image)
+        for feed_dict in data_loader:
+            images = feed_dict['image'].to(args.device)
+            targets = feed_dict['digit'].to(args.device)        
+            output = model(images)
 
     _, indices = output.topk(1, dim=1)
-    masks = indices.eq(target.view(-1, 1).expand_as(indices))
-    size = target.shape[0]
+    masks = indices.eq(targets.view(-1, 1).expand_as(indices))
+    size = targets.shape[0]
     corrects = masks.sum().item()
     accuracy = corrects / size
 
@@ -92,7 +102,7 @@ def Scheme(design, weight='base', epochs=None):
         if weight != 'base':
             model.load_state_dict(weight, strict= False)
         else:
-            model.load_state_dict(torch.load('base_weight_swap'))
+            model.load_state_dict(torch.load('weights/base_weight_fashion_5_layers'))
     criterion = nn.NLLLoss()
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
@@ -129,16 +139,15 @@ def Scheme(design, weight='base', epochs=None):
 
 if __name__ == '__main__':
     change_code = None
-    change_code = [1, 1, 3, 0, 1]  #0.717825355
-    change_code = [[2, 1, 2, 2, 3], [3, 0, 1, 2, 2]]
-
+    # change_code = [1, 1, 3, 0, 1]  #0.717825355
+    # change_code = [[1, 2, 2, 1, 2], [2, 2, 0, 0, 3]]
 
     net = gen_arch(change_code)
     print(prune_single(net))
 
     design = translator(change_code, 'full')
-    best_model, report = Scheme(design, 'base', 1)
+    best_model, report = Scheme(design, 'init', 30)
 
     # design = translator(change_code, 'full')
     # best_model, report = Scheme(design, 'base', 30)
-    # torch.save(best_model.state_dict(), 'base_weight_swap_1')
+    # torch.save(best_model.state_dict(), 'weights/base_weight_fashion_5_layers')

@@ -29,7 +29,7 @@ def prune_single(net):
     tmp = net_arr - [i for i in range(args.n_qubits)]        # posiitons of all discarded CU3
     index = np.where(tmp == 0)
     net_arr[index] = -1
-    single = np.ones((args.n_qubits, args.n_qubits)).astype(int)
+    single = np.ones((args.n_layers, args.n_qubits)).astype(int)
     
     for i in range(args.n_layers):
         unique, counts = np.unique(net_arr[i], return_counts=True)

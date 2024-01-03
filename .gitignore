@@ -171,8 +171,6 @@ states_old/
 pred.csv
 test
 data/*.csv
-results - 副本.csv
-results - 副本 (2).csv
 data/results1.csv
 train_space_4
 *.csv
@@ -184,5 +182,7 @@ backup/all_layers/states/
 backup/compact/states
 .vscode/extensions.json
 data/mnist/
+data/MNIST/
+data/FashionMNIST/
 backup/
 

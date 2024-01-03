@@ -36,7 +36,7 @@ class Classifier:
         self.node_layer       = ceil(log2(node_id + 2) - 1)
         # self.model            = Linear(self.input_dim_2d, 2)
         # self.model            = Mlp(self.input_dim_2d, 6, 2)
-        self.model            = RNN(2*(input_dim-1), 16, 2)
+        self.model            = RNN(8, 16, 2)
         if torch.cuda.is_available():
             self.model.cuda()
         self.loss_fn          = nn.MSELoss()
@@ -50,19 +50,19 @@ class Classifier:
         self.labels           = None
         self.mean             = 0        
         self.period           = 10
+        self.n_layers         = input_dim-1
 
 
     def update_samples(self, latest_samples, mean):
         assert type(latest_samples) == type(self.samples)
         sampled_nets = []
-        nets_maeinv  = []
-        n_layers = 4
+        nets_maeinv  = []        
         for k, v in latest_samples.items():
             net = json.loads(k)
             # RNN
             net = gen_arch(net)
             single = prune_single(net)
-            net = np.array(net).reshape(n_layers, -1)
+            net = np.array(net).reshape(self.n_layers, -1)
             net = np.concatenate((single, net), axis=1)     
 
             sampled_nets.append(net)
@@ -125,14 +125,13 @@ class Classifier:
 
     def predict(self, remaining):
         assert type(remaining) == type({})
-        remaining_archs = []
-        n_layers = 4
+        remaining_archs = []        
         for k, v in remaining.items():
             net = json.loads(k)
             # RNN            
             net = gen_arch(net)
             single = prune_single(net)
-            net = np.array(net).reshape(n_layers, -1)
+            net = np.array(net).reshape(self.n_layers, -1)
             net = np.concatenate((single, net), axis=1)            
             remaining_archs.append(net)
         remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32))
