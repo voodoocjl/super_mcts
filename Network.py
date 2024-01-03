@@ -121,5 +121,6 @@ def positional_encoding(max_len, d_model):
     return pos_encoding
 
 def normalize(x):
-    x = (x - torch.mean(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)) / torch.std(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)
+    # x = (x - torch.mean(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)) / torch.std(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)
+    x = (x - torch.mean(x)) / torch.std(x)
     return x

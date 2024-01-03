@@ -24,7 +24,8 @@ with open('data/mnist_dataset_swap_pruning', 'rb') as file:
     dataset = pickle.load(file)
 
 def normalize(x):
-    x = (x - torch.mean(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)) / torch.std(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)
+    # x = (x - torch.mean(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)) / torch.std(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)
+    x = (x - torch.mean(x)) / torch.std(x)
     return x
 
 def transform_2d(x, repeat):
