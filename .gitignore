@@ -186,3 +186,5 @@ data/MNIST/
 data/FashionMNIST/
 backup/
 
+FusionModel_bak.py
+schemes_backup.py

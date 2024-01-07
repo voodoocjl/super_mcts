@@ -104,7 +104,7 @@ def Scheme(design, epochs=None, weight=None):
     if weight != None:
         model.load_state_dict(weight, strict= False)
     else:
-        model.load_state_dict(torch.load('weights/base_weight_fashion_5_layers'))
+        model.load_state_dict(torch.load('weights/mnist_best_1'))
     criterion = nn.NLLLoss()
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
@@ -150,7 +150,13 @@ def search(train_space, index, size):
     
     while i < len(train_space):
         net = train_space[i]
+        if net[0] == 3:
+            i += 1
+            j += 1
+            continue
         print('Net', j, ":", net)
+        base = [3, 0, 0, 0, 0, 0, 1, 0, 1]
+        net = [base, net]
         design = translator(net, 'full')
         best_model, report = Scheme(design, 1)
         with open(filename, 'a+', newline='') as res:
@@ -167,7 +173,7 @@ if __name__ == '__main__':
     train_space = []
     filename = 'search_space_mnist'
     filename = 'search_space_mnist_2steps'
-    filename = 'search_space_5_layers'
+    filename = 'search_space_mnist_single'
 
     with open(filename, 'rb') as file:
         train_space = pickle.load(file)

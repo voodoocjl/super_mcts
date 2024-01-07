@@ -63,6 +63,7 @@ def test(model, data_loader, criterion, args):
     corrects = masks.sum().item()
     accuracy = corrects / size
 
+    
     return total_loss, accuracy
 
 def evaluate(model, data_loader, args):
@@ -101,8 +102,9 @@ def Scheme(design, weight='base', epochs=None):
     if weight != 'init':
         if weight != 'base':
             model.load_state_dict(weight, strict= False)
-        else:
-            model.load_state_dict(torch.load('weights/base_weight_fashion_5_layers'))
+        else:            
+            # model.load_state_dict(torch.load('weights/mnist_4_layers_reuploading'))
+            model.load_state_dict(torch.load('weights/mnist_best_1'))
     criterion = nn.NLLLoss()
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
@@ -139,15 +141,24 @@ def Scheme(design, weight='base', epochs=None):
 
 if __name__ == '__main__':
     change_code = None
-    # change_code = [1, 1, 3, 0, 1]  #0.717825355
-    # change_code = [[1, 2, 2, 1, 2], [2, 2, 0, 0, 3]]
+    # change_code = [1, -1, -3, 2, 1]  #0.717825355
+    # change_code = [[3, 0, 0, 0, 0, 0, 1, 0, 1], [4, 0, 0, 0, 0, 0, 0, 1, 0]]
+    change_code = [[3, 0, 0, 0, 0, 0, 1, 0, 1], [4, 0, 0, 0, 0, 0, 0, 1, 0]]
 
-    net = gen_arch(change_code)
-    print(prune_single(net))
+    
+    # import pickle
+    # with open('search_space_mnist_single', 'rb') as file:
+    #     search_space = pickle.load(file)
+    
+    # change_code = random.sample(search_space, 10)
 
+    # for i in range(10):
+    #     print(change_code[i])
+    #     design = translator([change_code[i]])
+    #     best_model, report = Scheme(design, 'base', 10)
+    
     design = translator(change_code, 'full')
-    best_model, report = Scheme(design, 'init', 30)
+    best_model, report = Scheme(design, 'base', 1)
 
-    # design = translator(change_code, 'full')
-    # best_model, report = Scheme(design, 'base', 30)
-    # torch.save(best_model.state_dict(), 'weights/base_weight_fashion_5_layers')
+
+    # torch.save(best_model.state_dict(), 'weights/mnist_best_1')
