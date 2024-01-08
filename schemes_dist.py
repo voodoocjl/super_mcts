@@ -104,7 +104,7 @@ def Scheme(design, epochs=None, weight=None):
     if weight != None:
         model.load_state_dict(weight, strict= False)
     else:
-        model.load_state_dict(torch.load('weights/mnist_best_1'))
+        model.load_state_dict(torch.load('weights/fashion_swap_2'))
     criterion = nn.NLLLoss()
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
@@ -150,13 +150,8 @@ def search(train_space, index, size):
     
     while i < len(train_space):
         net = train_space[i]
-        if net[0] == 3:
-            i += 1
-            j += 1
-            continue
         print('Net', j, ":", net)
-        base = [3, 0, 0, 0, 0, 0, 1, 0, 1]
-        net = [base, net]
+
         design = translator(net, 'full')
         best_model, report = Scheme(design, 1)
         with open(filename, 'a+', newline='') as res:
@@ -178,9 +173,16 @@ if __name__ == '__main__':
     with open(filename, 'rb') as file:
         train_space = pickle.load(file)
     
-    # # base_change
-    # change = [3, 0, 3, 3, 2]
-    # train_space = [[change, net] for net in train_space if net[0]!=change[0]]
+    # base_change
+    # change = [4, 1, 0, 1, 1, 0, 1, 1, 0]
+    change = [[4, 1, 0, 1, 1, 0, 1, 1, 0], [2, 0, 1, 1, 0, 0, 1, 1, 1]]
+    try:
+        assert type(change[0]) == type([])        
+    except AssertionError:
+        print('change should be list of list!!!' )
+        exit()
+    
+    train_space = [(change + [net]) for net in train_space if net[0] not in [change[i][0] for i in range(len(change))]]
 
     num_processes = 4
     size = int(len(train_space) / num_processes)

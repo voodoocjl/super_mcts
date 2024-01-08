@@ -6,8 +6,8 @@ import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import accuracy_score
-from Network import Attention, RNN, transform_2d, normalize
-from FusionModel import translator, gen_arch, prune_single
+from Network import Attention, RNN, normalize
+from FusionModel import cir_to_matrix
 
 
 torch.cuda.is_available = lambda : False
@@ -15,13 +15,25 @@ torch.cuda.is_available = lambda : False
 
 def get_label(energy, mean = None):
     label = energy.clone()
-    if mean and mean < float('inf'):
-        energy_mean = mean
-    else:
-        energy_mean = energy.mean()
+    # if mean and (mean < float('inf')):
+    #     energy_mean = mean
+    # else:
+    energy_mean = energy.mean()
     for i in range(energy.shape[0]):
         label[i] = energy[i] > energy_mean
     return label
+
+def insert_job(change_code, job):
+        if type(job[0]) == type([]):
+            qubit = [sub[0] for sub in job]
+        else:
+            qubit = [job[0]]
+            job = [job]
+        if change_code != None:            
+            for change in change_code:
+                if change[0] not in qubit:
+                    job.append(change)
+        return job
 
 
 class Classifier:
@@ -36,7 +48,7 @@ class Classifier:
         self.node_layer       = ceil(log2(node_id + 2) - 1)
         # self.model            = Linear(self.input_dim_2d, 2)
         # self.model            = Mlp(self.input_dim_2d, 6, 2)
-        self.model            = RNN(8, 16, 2)
+        self.model            = RNN(4, 16, 2)
         if torch.cuda.is_available():
             self.model.cuda()
         self.loss_fn          = nn.MSELoss()
@@ -50,34 +62,22 @@ class Classifier:
         self.labels           = None
         self.mean             = 0        
         self.period           = 10
-        self.n_layers         = input_dim-1
+        self.n_layers         = 4
+        self.n_qubits         = 4
 
 
-    def update_samples(self, latest_samples, mean):
+    def update_samples(self, latest_samples, arch):
         assert type(latest_samples) == type(self.samples)
         sampled_nets = []
-        nets_maeinv  = []        
+        nets_maeinv  = []
         for k, v in latest_samples.items():
-            net = json.loads(k)
-            # RNN
-            net = gen_arch(net)
-            single = prune_single(net)
-            net = np.array(net).reshape(self.n_layers, -1)
-            net = np.concatenate((single, net), axis=1)     
-
+            net = json.loads(k)            
             sampled_nets.append(net)
             nets_maeinv.append(v)
         self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32))
-        self.nets = normalize(self.nets)
-        
-        # self.nets = torch.from_numpy(np.asarray(sampled_nets, dtype=np.float32).reshape(len(sampled_nets), -1, self.input_dim-1))
-
-        
-        # # attention
-        # self.nets = transform_attention(self.nets, [1, 5])   # 5 layers
-
+        self.nets = normalize(self.nets)       
         self.maeinv = torch.from_numpy(np.asarray(nets_maeinv, dtype=np.float32).reshape(-1, 1))
-        self.labels = get_label(self.maeinv, mean)
+        self.labels = get_label(self.maeinv)
         self.samples = latest_samples
         if torch.cuda.is_available():
             self.nets = self.nets.cuda()
@@ -123,16 +123,17 @@ class Classifier:
         self.training_accuracy.append(acc)    
 
 
-    def predict(self, remaining):
+    def predict(self, remaining, arch):
         assert type(remaining) == type({})
         remaining_archs = []        
         for k, v in remaining.items():
             net = json.loads(k)
-            # RNN            
-            net = gen_arch(net)
-            single = prune_single(net)
-            net = np.array(net).reshape(self.n_layers, -1)
-            net = np.concatenate((single, net), axis=1)            
+            if arch['phase'] == 0:
+                net_ = insert_job(arch['single'], net) 
+                net = cir_to_matrix(net_, arch['enta'])
+            else:
+                net_ = insert_job(arch['enta'], net)
+                net = cir_to_matrix(arch['single'], net_)           
             remaining_archs.append(net)
         remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32))
         remaining_archs = normalize(remaining_archs)
@@ -157,7 +158,7 @@ class Classifier:
         return result, xbar
 
 
-    def split_predictions(self, remaining, method = None):
+    def split_predictions(self, remaining, arch, method = None):
         assert type(remaining) == type({})
         samples_badness = {}
         samples_goodies = {}
@@ -165,7 +166,7 @@ class Classifier:
         if len(remaining) == 0:
             return samples_goodies, samples_badness, 0
         if method == None:
-            predictions, xbar = self.predict(remaining)  # arch_str -> pred_test_mae
+            predictions, xbar = self.predict(remaining, arch)  # arch_str -> pred_test_mae
             for k, v in predictions.items():
                 # if v < self.sample_mean():
                 # split by label

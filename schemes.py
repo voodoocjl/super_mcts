@@ -103,8 +103,8 @@ def Scheme(design, weight='base', epochs=None):
         if weight != 'base':
             model.load_state_dict(weight, strict= False)
         else:            
-            # model.load_state_dict(torch.load('weights/mnist_4_layers_reuploading'))
-            model.load_state_dict(torch.load('weights/mnist_best_1'))
+            model.load_state_dict(torch.load('weights/mnist_4_layers_reuploading'))
+            # model.load_state_dict(torch.load('weights/mnist_best_3'))
     criterion = nn.NLLLoss()
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
@@ -118,15 +118,15 @@ def Scheme(design, weight='base', epochs=None):
         train_loss_list.append(train_loss)
         val_loss = evaluate(model, val_loader, args)
         val_loss_list.append(val_loss)
+        metrics = evaluate(model, test_loader, args)
+        val_loss = 0.5 *(val_loss+train_loss[-1])
         if val_loss > best_val_loss:
             best_val_loss = val_loss
-            print(epoch, train_loss, val_loss, 'saving model')
+            print(epoch, train_loss, val_loss_list[-1], metrics, 'saving model')
             best_model = copy.deepcopy(model)           
         else:
-            print(epoch, train_loss, val_loss)
-        # metrics = evaluate(model, test_loader, args)
-        # display(metrics)
-        # print(epoch, train_loss, val_loss)
+            print(epoch, train_loss, val_loss_list[-1], metrics)
+        
     end = time.time()
     print("Running time: %s seconds" % (end - start))
     # best_model = model
@@ -140,12 +140,16 @@ def Scheme(design, weight='base', epochs=None):
 
 
 if __name__ == '__main__':
-    change_code = None
-    # change_code = [1, -1, -3, 2, 1]  #0.717825355
-    # change_code = [[3, 0, 0, 0, 0, 0, 1, 0, 1], [4, 0, 0, 0, 0, 0, 0, 1, 0]]
-    change_code = [[3, 0, 0, 0, 0, 0, 1, 0, 1], [4, 0, 0, 0, 0, 0, 0, 1, 0]]
+    single = None
+    enta = None
 
+    single = [3, 1, 1, 1, 0, 1, 1, 1, 1]  
+    # change_code = [[3, 0, 0, 0, 0, 0, 1, 0, 1], [4, 1, 0, 1, 0, 1, 1, 1, 1]]
+    # single = [[3, 0, 0, 0, 0, 0, 1, 0, 1], [4, 1, 0, 1, 0, 1, 1, 1, 1], [2, 1, 1, 1, 0, 1, 1, 1, 1]]
     
+    # enta = [[4, 1, 1, 3, 1]]  #83.738
+    # enta = [[3, 3, 3, 2, 2]]  #83.3
+    # enta = [[3, 3, 3, 1, 2]]
     # import pickle
     # with open('search_space_mnist_single', 'rb') as file:
     #     search_space = pickle.load(file)
@@ -157,8 +161,8 @@ if __name__ == '__main__':
     #     design = translator([change_code[i]])
     #     best_model, report = Scheme(design, 'base', 10)
     
-    design = translator(change_code, 'full')
+    design = translator(single, enta, 'full')
     best_model, report = Scheme(design, 'base', 1)
 
 
-    # torch.save(best_model.state_dict(), 'weights/mnist_best_1')
+    # torch.save(best_model.state_dict(), 'weights/mnist_best_3')

@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch import nn
 from Arguments import Arguments
 args = Arguments()
@@ -98,18 +99,6 @@ class Attention(nn.Module):
         # out[:, -1] = torch.sigmoid(out[:, -1])
         return out
 
-
-def transform_2d(x, method):
-    # x = x.reshape(-1, args.n_layers, args.n_qubits)   
-    x = x.reshape(-1, 2, args.n_qubits+1)
-    if method == 'conv':
-        return x.unsqueeze(1)
-    elif method == 'rnn':
-        return x
-    else:
-        return x + positional_encoding(args.n_layers, args.n_qubits)
-
-
 def positional_encoding(max_len, d_model):
     pos = torch.arange(max_len).unsqueeze(1)
     i = torch.arange(d_model).unsqueeze(0)
@@ -121,6 +110,6 @@ def positional_encoding(max_len, d_model):
     return pos_encoding
 
 def normalize(x):
-    # x = (x - torch.mean(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)) / torch.std(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)
-    x = (x - torch.mean(x)) / torch.std(x)
+    x = (x - torch.mean(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)) / torch.std(x, dim=(1,2)).unsqueeze(-1).unsqueeze(-1)
+    # x = (x - torch.mean(x)) / torch.std(x)
     return x

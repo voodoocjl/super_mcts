@@ -19,7 +19,7 @@ random.seed(seed)
 np.random.seed(seed)
 torch.random.manual_seed(seed)
 
-with open('data/mnist_dataset_swap_pruning', 'rb') as file:
+with open('data/mnist_dataset_single', 'rb') as file:
 # with open('data/mnist_dataset', 'rb') as file:
     dataset = pickle.load(file)
 

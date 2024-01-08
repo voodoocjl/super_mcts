@@ -20,20 +20,20 @@ def allPermutation(n, numbers = None):
     return result
 
 n = 4  # qubit number
-# # generate sign
-# layers = 3
-# sign = allPermutation(n, [1, 0])
-# # print(len(sign))
+# generate sign
+layers = 3
+sign = allPermutation(n, [1, 0])
+# print(len(sign))
 
-# # generate arch
-# layers = 4
-# result = allPermutation(n)
-# lst = [i for i in range(1, n+1)]
-# lst = np.roll(lst, -1)
-# for qubit in range(1, n+1):
-#     # result.remove([qubit] + [lst[qubit-1]] * layers)
-#     result.remove([qubit] * (1+layers))
-# # print(len(result))
+# generate arch
+layers = 4
+result = allPermutation(n)
+lst = [i for i in range(1, n+1)]
+lst = np.roll(lst, -1)
+for qubit in range(1, n+1):
+    result.remove([qubit] + [lst[qubit-1]] * layers)
+    result.remove([qubit] * (1+layers))
+# print(len(result))
 
 
 # results =[]
@@ -46,25 +46,26 @@ n = 4  # qubit number
 # for qubit in range(1, n+1):
 #     results.remove([qubit] + [lst[qubit-1]] * layers)
 
-# with open('search_space_4_layers_pm', 'wb') as file:
-#     pickle.dump(results, file)
+with open('search_space_mnist', 'wb') as file:
+    pickle.dump(result, file)
 
-# print(len(results))
+print(len(result))
 
-first = [i for i in range(1, n+1)]
-others = [0, 1]
-layers = 2*4
 
-all_permutation = list(itertools.product(first, *([others]*layers)))
-result_list = []
-for i in range(len(all_permutation)):
-    temp = []
-    for j in range(len(all_permutation[i])):        
-        temp.append(all_permutation[i][j])
-    result_list.append(temp)
+# first = [i for i in range(1, n+1)]
+# others = [0, 1]
+# layers = 2*4
 
-for qubit in range(1, n+1):
-    result_list.remove([qubit] + [1] * layers)
+# all_permutation = list(itertools.product(first, *([others]*layers)))
+# result_list = []
+# for i in range(len(all_permutation)):
+#     temp = []
+#     for j in range(len(all_permutation[i])):        
+#         temp.append(all_permutation[i][j])
+#     result_list.append(temp)
 
-with open('search_space_mnist_single', 'wb') as file:
-    pickle.dump(result_list, file)
+# for qubit in range(1, n+1):
+#     result_list.remove([qubit] + [1] * layers)
+
+# with open('search_space_mnist_single', 'wb') as file:
+#     pickle.dump(result_list, file)

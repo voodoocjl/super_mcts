@@ -18,33 +18,15 @@ def gen_arch(change_code, base_code=args.base_code):
         if type(change_code[0]) != type([]):
             change_code = [change_code]
 
-        # for i in range(len(change_code)):
-        #     q = change_code[i][0]  # the qubit changed
-        #     for id, t in enumerate(change_code[i][1:]):
-        #         arch_code[q - 1 + id * args.n_qubits] = t
+        for i in range(len(change_code)):
+            q = change_code[i][0]  # the qubit changed
+            for id, t in enumerate(change_code[i][1:]):
+                arch_code[q - 1 + id * args.n_qubits] = t
     return arch_code
 
-def prune_single(net):
-    net_arr = np.array(net).reshape((args.n_layers, args.n_qubits))
-    tmp = np.abs(net_arr) - [i for i in range(1, 1+args.n_qubits)]        # posiitons of all discarded CU3
-    index = np.where(tmp == 0)
-    net_arr[index] = 0
-    index = np.where(net_arr < 0)
-    net_arr[index] = index[1] + 1
-    single = np.ones((args.n_layers, args.n_qubits)).astype(int)
-
-    for i in range(args.n_layers):
-        unique, counts = np.unique(net_arr[i], return_counts=True)
-        redundant = unique[counts > 1]   # remove 0
-        redundant[redundant != 0]
-        single[i][redundant-1] = 0
-
-    return single
-
-def translator(change_code, trainable='partial', base_code=args.base_code):
-    net = gen_arch(change_code)
-    updated_design = {}
-    updated_design['current_qubit'] = []
+def prune_single(change_code):
+    single_dict = {}
+    single_dict['current_qubit'] = []
     if change_code != None:
         if type(change_code[0]) != type([]):
             change_code = [change_code]
@@ -52,17 +34,24 @@ def translator(change_code, trainable='partial', base_code=args.base_code):
         change_code = np.array(change_code)
         change_qbit = change_code[:,0] - 1
         change_code = change_code.reshape(-1, length)    
-        updated_design['current_qubit'] = change_qbit
+        single_dict['current_qubit'] = change_qbit
         j = 0
         for i in change_qbit:            
-            updated_design['qubit_{}'.format(i)] = change_code[:, 1:][j].reshape(2, -1)
-            j += 1    
+            single_dict['qubit_{}'.format(i)] = change_code[:, 1:][j].reshape(2, -1)
+            j += 1
+    return single_dict
 
-    if trainable == 'full' or change_code is None:
+def translator(single_code, enta_code, trainable='partial', base_code=args.base_code):    
+    updated_design = {}
+    if single_code != None:
+        updated_design = prune_single(single_code)
+    net = gen_arch(enta_code) 
+
+    if trainable == 'full' or enta_code == None:
         updated_design['change_qubit'] = None
     else:
-        if type(change_code[0]) != type([]): change_code = [change_code]
-        updated_design['change_qubit'] = change_qbit[-1]
+        if type(enta_code[0]) != type([]): enta_code = [enta_code]
+        updated_design['change_qubit'] = enta_code[-1][0]
 
     # num of layers
     updated_design['n_layers'] = args.n_layers
@@ -80,6 +69,26 @@ def translator(change_code, trainable='partial', base_code=args.base_code):
 
     updated_design['total_gates'] = updated_design['n_layers'] * args.n_qubits * 2
     return updated_design
+
+def cir_to_matrix(x=None, y=None, qubits=args.n_qubits,layers=args.n_layers):
+    entangle = gen_arch(y)
+    entangle = np.array([entangle]).reshape(layers, qubits).transpose(1,0)
+    single = np.ones((qubits, 2*layers))   
+    # [[1,1,1,1]
+    #  [2,2,2,2]
+    #  [3,3,3,3]
+    #  [0,0,0,0]]
+
+    if x != None:
+        if type(x[0]) != type([]):
+            x = [x]    
+        x = np.array(x)
+        index = x[:, 0] - 1
+        index = [int(index[i]) for i in range(len(index))]
+        single[index] = x[:, 1:]    
+    arch = np.insert(single, [(2 * i) for i in range(1, layers+1)], entangle, axis=1)
+    
+    return arch.transpose(1, 0)    #[layers, qubits]
 
 class TQLayer(tq.QuantumModule):
     def __init__(self, arguments, design):
@@ -140,9 +149,7 @@ class TQLayer(tq.QuantumModule):
                 if not (j in self.design['current_qubit'] and self.design['qubit_{}'.format(j)][0][layer] == 0):
                     self.uploading[j](qdev, x[:,j])
                 if not (j in self.design['current_qubit'] and self.design['qubit_{}'.format(j)][1][layer] == 0):
-                    self.rots[j + layer * self.n_wires](qdev, wires=j)            
-                # self.uploading[j](qdev, x[:,j])
-                # self.rots[j + layer * self.n_wires](qdev, wires=j)
+                    self.rots[j + layer * self.n_wires](qdev, wires=j)                
                 
             for j in range(self.n_wires):
                 if self.design['enta' + str(layer) + str(j)][1][0] != self.design['enta' + str(layer) + str(j)][1][1]:

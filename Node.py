@@ -38,7 +38,8 @@ class Node:
         self.layer         = ceil(log2(self.id + 2) - 1)
         self.classifier    = Classifier({}, self.ARCH_CODE_LEN, self.id)
 
-        self.base_code     = None
+        self.base_code     = None        
+        self.explorations = {'phase': 0, 'iteration': 0, 'single':None, 'enta': None, 'rate': 0.006, 'rate_decay': [0.006, 0.004, 0.002, 0]}
 
         # insert current node into the kids of parent
         if parent is not None:
@@ -54,6 +55,16 @@ class Node:
         self.bag.clear()
         self.bad_kid_data.clear()
         self.good_kid_data.clear()
+
+    def set_arch(self, phase, code):
+        if phase == 0:            
+            self.explorations['enta'] = code
+            self.explorations['single'] = None
+        else:
+            self.explorations['single'] = code
+            self.explorations['enta'] = None
+
+        self.explorations['phase'] = phase
 
 
     def put_in_bag(self, net, maeinv):
@@ -137,7 +148,7 @@ class Node:
         if self.parent == None and self.is_root == True:
         # training starts from the bag
             assert len(self.bag) > 0
-            self.classifier.update_samples(self.bag, self.x_bar)
+            self.classifier.update_samples(self.bag, self.explorations)
             self.good_kid_data, self.bad_kid_data = self.classifier.split_data()
         elif self.is_leaf:
             if self.is_good_kid:
@@ -147,11 +158,11 @@ class Node:
         else:
             if self.is_good_kid:
                 self.bag = self.parent.good_kid_data
-                self.classifier.update_samples(self.parent.good_kid_data, self.x_bar)
+                self.classifier.update_samples(self.parent.good_kid_data, self.explorations)
                 self.good_kid_data, self.bad_kid_data = self.classifier.split_data()
             else:
                 self.bag = self.parent.bad_kid_data
-                self.classifier.update_samples(self.parent.bad_kid_data, self.x_bar)
+                self.classifier.update_samples(self.parent.bad_kid_data, self.explorations)
                 self.good_kid_data, self.bad_kid_data = self.classifier.split_data()
         self.x_bar = np.mean(np.array(list(self.bag.values())))
         self.n     = len(self.bag.values())
@@ -159,7 +170,7 @@ class Node:
 
     def predict(self, method = None):
         if self.parent == None and self.is_root == True and self.is_leaf == False:
-            self.good_kid_data, self.bad_kid_data, _ = self.classifier.split_predictions(self.bag, method)
+            self.good_kid_data, self.bad_kid_data, _ = self.classifier.split_predictions(self.bag, self.explorations, method)
         elif self.is_leaf:
             if self.is_good_kid:
                 self.bag = self.parent.good_kid_data
@@ -168,11 +179,11 @@ class Node:
         else:
             if self.is_good_kid:
                 self.bag = self.parent.good_kid_data
-                self.good_kid_data, self.bad_kid_data, xbar = self.classifier.split_predictions(self.parent.good_kid_data, method)
+                self.good_kid_data, self.bad_kid_data, xbar = self.classifier.split_predictions(self.parent.good_kid_data, self.explorations, method)
                 # self.x_bar = xbar
             else:
                 self.bag = self.parent.bad_kid_data
-                self.good_kid_data, self.bad_kid_data, xbar = self.classifier.split_predictions(self.parent.bad_kid_data, method)
+                self.good_kid_data, self.bad_kid_data, xbar = self.classifier.split_predictions(self.parent.bad_kid_data, self.explorations, method)
                 # self.x_bar = xbar
         if method:
             self.validation = self.bag.copy()
