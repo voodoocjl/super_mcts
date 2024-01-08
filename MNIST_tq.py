@@ -14,7 +14,7 @@ def MNISTDataLoaders(args):
         digits_of_interest=args.digits_of_interest,
         n_test_samples=None,
         n_valid_samples=None,
-        fashion=False,
+        fashion=True,
         n_train_samples=None
         )
     dataflow = dict()

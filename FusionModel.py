@@ -133,9 +133,9 @@ class TQLayer(tq.QuantumModule):
         # x = x.view(bsz, -1)
         x = x.view(bsz, 4, 4).transpose(1,2)
 
-        tmp = x[:, :, 1].clone()
-        x[:, :, 1] = x[:, :, 2]
-        x[:, :, 2] = tmp
+        # tmp = x[:, :, 1].clone()
+        # x[:, :, 1] = x[:, :, 2]
+        # x[:, :, 2] = tmp
 
         qdev = tq.QuantumDevice(n_wires=self.n_wires, bsz=bsz, device=x.device)
 

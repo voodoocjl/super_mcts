@@ -103,7 +103,7 @@ def Scheme(design, weight='base', epochs=None):
         if weight != 'base':
             model.load_state_dict(weight, strict= False)
         else:            
-            model.load_state_dict(torch.load('weights/mnist_4_layers_reuploading'))
+            model.load_state_dict(torch.load('weights/base_fashion'))
             # model.load_state_dict(torch.load('weights/mnist_best_3'))
     criterion = nn.NLLLoss()
    
@@ -143,9 +143,8 @@ if __name__ == '__main__':
     single = None
     enta = None
 
-    single = [3, 1, 1, 1, 0, 1, 1, 1, 1]  
-    # change_code = [[3, 0, 0, 0, 0, 0, 1, 0, 1], [4, 1, 0, 1, 0, 1, 1, 1, 1]]
-    # single = [[3, 0, 0, 0, 0, 0, 1, 0, 1], [4, 1, 0, 1, 0, 1, 1, 1, 1], [2, 1, 1, 1, 0, 1, 1, 1, 1]]
+    # single = [3, 1, 1, 1, 0, 1, 1, 1, 1]  
+   
     
     # enta = [[4, 1, 1, 3, 1]]  #83.738
     # enta = [[3, 3, 3, 2, 2]]  #83.3
@@ -162,7 +161,6 @@ if __name__ == '__main__':
     #     best_model, report = Scheme(design, 'base', 10)
     
     design = translator(single, enta, 'full')
-    best_model, report = Scheme(design, 'base', 1)
+    best_model, report = Scheme(design, 'init', 30)
 
-
-    # torch.save(best_model.state_dict(), 'weights/mnist_best_3')
+    # torch.save(best_model.state_dict(), 'weights/base_fashion')

@@ -415,7 +415,7 @@ if __name__ == '__main__':
     with open('data/mnist_dataset_single', 'rb') as file:
         dataset = pickle.load(file)
       
-    # dataset = {}
+    dataset = {}
 
     if os.path.isfile('results.csv') == False:
         with open('results.csv', 'w+', newline='') as res:
