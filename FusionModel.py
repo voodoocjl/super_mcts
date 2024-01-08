@@ -43,8 +43,7 @@ def prune_single(change_code):
 
 def translator(single_code, enta_code, trainable='partial', base_code=args.base_code):    
     updated_design = {}
-    if single_code != None:
-        updated_design = prune_single(single_code)
+    updated_design = prune_single(single_code)
     net = gen_arch(enta_code) 
 
     if trainable == 'full' or enta_code == None:
@@ -134,9 +133,9 @@ class TQLayer(tq.QuantumModule):
         # x = x.view(bsz, -1)
         x = x.view(bsz, 4, 4).transpose(1,2)
 
-        # tmp = x[:, 4:8].clone()
-        # x[:, 4:8] = x[:, 8:12]
-        # x[:, 8:12] = tmp
+        tmp = x[:, :, 1].clone()
+        x[:, :, 1] = x[:, :, 2]
+        x[:, :, 2] = tmp
 
         qdev = tq.QuantumDevice(n_wires=self.n_wires, bsz=bsz, device=x.device)
 
