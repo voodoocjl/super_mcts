@@ -60,8 +60,16 @@ class MCTS:
         self.weight = 'base'
         self.explorations = {'phase': 0, 'iteration': 0, 'single':None, 'enta': None, 'rate': 0.006, 'rate_decay': [0.006, 0.004, 0.002, 0]}
 
-    def init_train(self):
-        for i in range(0, 50):
+    def set_init_arch(self, arch):
+        single = arch[0]
+        enta =arch[1]
+        self.explorations['single'] = single
+        self.explorations['enta'] = enta
+            
+    
+    def init_train(self, numbers=50):
+        # random.seed(40)
+        for i in range(0, numbers):
             net = random.choice(self.search_space)
             self.search_space.remove(net)
             self.TASK_QUEUE.append(net)
@@ -108,6 +116,11 @@ class MCTS:
         best_model, report = Scheme(design, strategy, epochs)
         self.weight = best_model.state_dict()
         self.samples_compact = {}
+
+        import datetime        
+        current_time = datetime.datetime.now()
+        formatted_time = current_time.strftime('%m-%d-%H')
+        torch.save(best_model.state_dict(), 'weights/fashion/weight_{}_{}'.format(self.ITERATION, formatted_time))
 
         with open('results_30_epoch.csv', 'a+', newline='') as res:
             writer = csv.writer(res)
@@ -279,7 +292,8 @@ class MCTS:
                 else:
                     zero_counts = [(job[i].count(job[i][0])-1) for i in range(len(job))]
                     gate_reduced = np.sum(zero_counts)
-                p_acc = acc + gate_reduced * self.explorations['rate_decay'][self.stages]
+                # p_acc = acc + gate_reduced * self.explorations['rate_decay'][self.stages]
+                p_acc = acc
                 self.samples[arch_str] = p_acc
                 self.samples_compact[job_str] = p_acc
                 # self.explorations[job_str]   = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
@@ -306,12 +320,11 @@ class MCTS:
                 self.dump_all_states(self.sampling_num + len(self.samples))
             print("\niteration:", self.ITERATION)
 
-            period = 5
+            period = 1
 
             if (self.ITERATION % period == 0): 
                 if self.ITERATION == 0:
-                    self.init_train()
-                    # self.set_arch(1, [[3, 0, 0, 0, 0, 0, 1, 0, 1], [4, 1, 0, 1, 0, 1, 1, 1, 1], [2, 1, 1, 1, 0, 1, 1, 1, 1]])
+                    self.init_train(5)                    
                 else:
                     self.re_init_tree()
                     # for i in range(len(self.TASK_QUEUE)):
@@ -403,7 +416,12 @@ if __name__ == '__main__':
      # set random seed
     random.seed(42)
     np.random.seed(42)
-    torch.random.manual_seed(42)   
+    torch.random.manual_seed(42)
+
+    def empty_arch(n_layers, n_qubits):            
+        single = [[i] + [0]* (2*n_layers) for i in range(1,n_qubits+1)]
+        enta = [[i] + [i]*n_layers for i in range(1,n_qubits+1)]
+        return [single, enta]
 
     with open('search_space_mnist_single', 'rb') as file:
         search_space = pickle.load(file)
@@ -448,4 +466,6 @@ if __name__ == '__main__':
         agent.search()
     else:
         agent = MCTS(search_space, 4, arch_code_len)
+        arch = empty_arch(4, 4)
+        agent.set_init_arch(arch)
         agent.search()
