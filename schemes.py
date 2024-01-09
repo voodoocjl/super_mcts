@@ -103,9 +103,9 @@ def Scheme(design, weight='base', epochs=None):
         if weight != 'base':
             model.load_state_dict(weight, strict= False)
         else:            
-            model.load_state_dict(torch.load('weights/base_fashion'))
+            model.load_state_dict(torch.load('weights/base_fashion_swap'))
             # model.load_state_dict(torch.load('weights/mnist_best_3'))
-    criterion = nn.NLLLoss()
+    criterion = nn.NLLLoss()    
    
     optimizer = optim.Adam(model.QuantumLayer.parameters(), lr=args.qlr)
     train_loss_list, val_loss_list = [], []
@@ -113,7 +113,10 @@ def Scheme(design, weight='base', epochs=None):
 
     start = time.time()
     for epoch in range(epochs):
-        train(model, train_loader, optimizer, criterion, args)
+        try:
+            train(model, train_loader, optimizer, criterion, args)
+        except Exception as e:
+            print('No parameter gate exists')
         train_loss = test(model, train_loader, criterion, args)
         train_loss_list.append(train_loss)
         val_loss = evaluate(model, val_loader, args)
@@ -142,8 +145,9 @@ def Scheme(design, weight='base', epochs=None):
 if __name__ == '__main__':
     single = None
     enta = None
-
-    # single = [3, 1, 1, 1, 0, 1, 1, 1, 1]  
+    
+    # single = [[i] + [0]*8 for i in range(1,5)]
+    enta = [[i] + [i]*4 for i in range(1,5)]
    
     
     # enta = [[4, 1, 1, 3, 1]]  #83.738
