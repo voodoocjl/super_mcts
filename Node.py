@@ -4,6 +4,7 @@ from math import log2, ceil
 import random
 import numpy as np
 from Classifier import Classifier
+import copy
 
 
 class Node:
@@ -169,8 +170,8 @@ class Node:
 
 
     def predict(self, method = None):
-        if self.parent == None and self.is_root == True and self.is_leaf == False:
-            self.good_kid_data, self.bad_kid_data, _ = self.classifier.split_predictions(self.bag, self.explorations, method)
+        if self.parent == None and self.is_root == True and self.is_leaf == False:            
+            self.good_kid_data, self.bad_kid_data, _ = self.classifier.split_predictions(self.bag, self.explorations, method)            
         elif self.is_leaf:
             if self.is_good_kid:
                 self.bag = self.parent.good_kid_data

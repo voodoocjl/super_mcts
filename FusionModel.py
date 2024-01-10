@@ -85,9 +85,8 @@ def cir_to_matrix(x=None, y=None, qubits=args.n_qubits,layers=args.n_layers):
         index = x[:, 0] - 1
         index = [int(index[i]) for i in range(len(index))]
         single[index] = x[:, 1:]    
-    arch = np.insert(single, [(2 * i) for i in range(1, layers+1)], entangle, axis=1)
-    
-    return arch.transpose(1, 0)    #[layers, qubits]
+    arch = np.insert(single, [(2 * i) for i in range(1, layers+1)], entangle, axis=1)    
+    return arch.transpose(1, 0)
 
 class TQLayer(tq.QuantumModule):
     def __init__(self, arguments, design):

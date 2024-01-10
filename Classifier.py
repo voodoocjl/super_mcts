@@ -9,7 +9,6 @@ from sklearn.metrics import accuracy_score
 from Network import Attention, RNN, normalize
 from FusionModel import cir_to_matrix
 
-
 torch.cuda.is_available = lambda : False
 
 
@@ -122,36 +121,33 @@ class Classifier:
         acc = accuracy_score(true_label.numpy(), pred_label.numpy())
         self.training_accuracy.append(acc)    
 
-
+    
     def predict(self, remaining, arch):
         assert type(remaining) == type({})
         remaining_archs = []        
         for k, v in remaining.items():
             net = json.loads(k)
             if arch['phase'] == 0:
-                net_ = insert_job(arch['single'], net) 
-                net = cir_to_matrix(net_, arch['enta'])
+                net = insert_job(arch['single'], net) 
+                net = cir_to_matrix(net, arch['enta'])                
             else:
-                net_ = insert_job(arch['enta'], net)
-                net = cir_to_matrix(arch['single'], net_)           
+                net = insert_job(arch['enta'], net)
+                net = cir_to_matrix(arch['single'], net)           
             remaining_archs.append(net)
         remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32))
         remaining_archs = normalize(remaining_archs)
-        # remaining_archs = torch.from_numpy(np.asarray(remaining_archs, dtype=np.float32).reshape(len(remaining_archs), -1, self.input_dim-1))
+                
         if torch.cuda.is_available():
             remaining_archs = remaining_archs.cuda()
-        # outputs = self.model(change_code(remaining_archs))
-        outputs = self.model(remaining_archs)
-        # labels = outputs[:, -1].reshape(-1, 1)  #output labels
+        
+        outputs = self.model(remaining_archs)        
         xbar = outputs[:, 0].mean().tolist()
 
         if torch.cuda.is_available():
             remaining_archs = remaining_archs.cpu()
             outputs         = outputs.cpu()
         result = {}
-        for k in range(0, len(remaining_archs)):
-            # arch = remaining_archs[k].detach().numpy().astype(np.int32)
-            # arch_str = json.dumps(arch.tolist())
+        for k in range(0, len(remaining_archs)):            
             arch_str = list(remaining.keys())[k]
             result[arch_str] = outputs[k].tolist()
         assert len(result) == len(remaining)
@@ -165,7 +161,7 @@ class Classifier:
         xbar = 0
         if len(remaining) == 0:
             return samples_goodies, samples_badness, 0
-        if method == None:
+        if method == None:            
             predictions, xbar = self.predict(remaining, arch)  # arch_str -> pred_test_mae
             for k, v in predictions.items():
                 # if v < self.sample_mean():
@@ -173,7 +169,7 @@ class Classifier:
                 if v[-1] < 0:
                     samples_badness[k] = v[0]
                 else:
-                    samples_goodies[k] = v[0]
+                    samples_goodies[k] = v[0]            
         else:
             predictions = np.mean(list(remaining.values()))
             for k, v in remaining.items():
@@ -232,7 +228,7 @@ class Classifier:
         # self.boundary = avg_maeinv
         for k, v in predictions.items():
             # if v < self.sample_mean():
-            if v < 0.5:
+            if v < 0:
                 samples_badness[k] = self.samples[k]  # (val_loss, test_mae)
             else:
                 samples_goodies[k] = self.samples[k]  # (val_loss, test_mae)

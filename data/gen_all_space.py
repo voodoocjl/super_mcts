@@ -19,20 +19,20 @@ def allPermutation(n, numbers = None):
         result.append(temp)
     return result
 
-n = 4  # qubit number
+n = 7  # qubit number
 # generate sign
 layers = 3
 sign = allPermutation(n, [1, 0])
 # print(len(sign))
 
 # generate arch
-layers = 4
+layers = 5
 result = allPermutation(n)
 lst = [i for i in range(1, n+1)]
 lst = np.roll(lst, -1)
-for qubit in range(1, n+1):
-    result.remove([qubit] + [lst[qubit-1]] * layers)
-    result.remove([qubit] * (1+layers))
+# for qubit in range(1, n+1):
+#     result.remove([qubit] + [lst[qubit-1]] * layers)
+#     result.remove([qubit] * (1+layers))
 # print(len(result))
 
 
@@ -46,7 +46,7 @@ for qubit in range(1, n+1):
 # for qubit in range(1, n+1):
 #     results.remove([qubit] + [lst[qubit-1]] * layers)
 
-with open('search_space_mnist', 'wb') as file:
+with open('search_space_mosi_enta', 'wb') as file:
     pickle.dump(result, file)
 
 print(len(result))

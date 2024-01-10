@@ -11,6 +11,9 @@ from schemes import Scheme
 import time
 from sampling import sampling_node
 import copy
+import torch.multiprocessing as mp
+from torch.multiprocessing import Process, Queue, Manager
+from prepare import *
 
 class MCTS:
     def __init__(self, search_space, tree_height, arch_code_len):
@@ -36,7 +39,8 @@ class MCTS:
         self.MAX_SAMPNUM    = 0
         self.sample_nodes   = []
         self.stages         = 0
-        self.sampling_num   = 0               
+        self.sampling_num   = 0   
+        self.acc_mean       = 0           
 
         self.tree_height    = tree_height
 
@@ -57,7 +61,7 @@ class MCTS:
 
         self.ROOT = self.nodes[0]
         self.CURT = self.ROOT
-        self.weight = 'base'
+        self.weight = 'init'
         self.explorations = {'phase': 0, 'iteration': 0, 'single':None, 'enta': None, 'rate': 0.006, 'rate_decay': [0.006, 0.004, 0.002, 0]}
 
     def set_init_arch(self, arch):
@@ -83,7 +87,7 @@ class MCTS:
         self.sample_nodes = []
         # self.explorations['rate'] -= 0.005
         self.stages += 1
-        phase = self.explorations['phase']        
+        phase = self.explorations['phase']
 
         epochs = 30
         # strategy = 'base'
@@ -202,7 +206,7 @@ class MCTS:
 
 
     def predict_nodes(self, method = None, dataset =None):
-        for i in self.nodes:
+        for i in self.nodes:            
             if dataset:
                 i.predict_validation()
             else:
@@ -253,163 +257,196 @@ class MCTS:
                     job.append(change)
         return job
 
-    def evaluate_jobs(self):
-        while len(self.TASK_QUEUE) > 0:
+
+    def evaluate_jobs_before(self):
+
+        jobs = []
+        designs =[]        
+        archs = []
+        while len(self.TASK_QUEUE) > 0:            
+           
             job = self.TASK_QUEUE.pop()
-            sample_node = self.sample_nodes.pop()
-
-            try:
-                # print("\nget job from QUEUE:", job)
-                job_str = json.dumps(job)
-                if self.explorations['phase'] == 0:
-                    single = self.insert_job(self.explorations['single'], job)
-                    enta = self.explorations['enta']
-                else:
-                    single = self.explorations['single']
-                    enta = self.insert_job(self.explorations['enta'], job)
-                design = translator(single, enta, 'full')
-                arch = cir_to_matrix(single, enta)
-                arch_str = json.dumps(np.int8(arch).tolist())
-                
-                if job_str in dataset and self.explorations['iteration'] == 0:
-                    report = {'mae': dataset.get(job_str)}
-                    # print(report)
-                else:
-                    _, report = Scheme(design, self.weight)
-                    # _, report = Scheme(design)
-                acc = 1 * report['mae']
-                self.DISPATCHED_JOB[job_str] = acc
-
-                if type(job[0]) != type([]):
-                    job = [job]
-
-                job_str = json.dumps(job)
-                
-                # exploration = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
-                if self.explorations['phase'] == 0:
-                    zero_counts = [job[i].count(0) for i in range(len(job))]
-                    gate_reduced = np.sum(zero_counts)
-                else:
-                    zero_counts = [(job[i].count(job[i][0])-1) for i in range(len(job))]
-                    gate_reduced = np.sum(zero_counts)
-                # p_acc = acc + gate_reduced * self.explorations['rate_decay'][self.stages]
-                p_acc = acc
-                self.samples[arch_str] = p_acc
-                self.samples_compact[job_str] = p_acc
-                # self.explorations[job_str]   = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
-                self.mae_list.append(acc)
-
-                with open('results.csv', 'a+', newline='') as res:
-                    writer = csv.writer(res)
-                    metrics = acc
-                    # num_id = self.sampling_num + len(self.samples)
-                    num_id = len(self.samples)
-                    writer.writerow([num_id, job_str, sample_node, metrics, p_acc])
-
-            except Exception as e:
-                print(e)
-                self.TASK_QUEUE.append(job)
-                self.sample_nodes.append(sample_node)
-                print("current queue length:", len(self.TASK_QUEUE))
-
-
-    def search(self):
-        while len(self.search_space) > 0 and self.ITERATION < 102:
-            # save current state
-            if self.ITERATION > 0:
-                self.dump_all_states(self.sampling_num + len(self.samples))
-            print("\niteration:", self.ITERATION)
-
-            period = 1
-
-            if (self.ITERATION % period == 0): 
-                if self.ITERATION == 0:
-                    self.init_train(5)                    
-                else:
-                    self.re_init_tree()
-                    # for i in range(len(self.TASK_QUEUE)):
-                    #     net = self.ROOT.base_code.copy()
-                    #     net.append(self.TASK_QUEUE[i])
-                    #     self.TASK_QUEUE[i] = net                             
-
-            # evaluate jobs:
-            print("\nevaluate jobs...")
-            self.evaluate_jobs()
-            print("\nfinished all jobs in task queue")
-
-            # assemble the training data:
-            print("\npopulate training data...")
-            self.populate_training_data()
-            print("finished")
-
-            # training the tree
-            print("\ntrain classifiers in nodes...")
-            if torch.cuda.is_available():
-                print("using cuda device")
+            sample_node = self.sample_nodes.pop()               
+            if type(job[0]) != type([]):
+                job = [job]                             
+            if self.explorations['phase'] == 0:
+                single = self.insert_job(self.explorations['single'], job)
+                enta = self.explorations['enta']
             else:
-                print("using cpu device")
-            start = time.time()
-            self.train_nodes()
-            print("finished")
-            end = time.time()
-            print("Running time: %s seconds" % (end - start))
-            # self.print_tree()
+                single = self.explorations['single']
+                enta = self.insert_job(self.explorations['enta'], job)
+            design = translator(single, enta, 'full')
+            arch = cir_to_matrix(single, enta)
+            arch_str = json.dumps(np.int8(arch).tolist())
 
-            # clear the data in nodes
-            self.reset_node_data() 
+            jobs.append(job)
+            designs.append(design)
+            archs.append(arch_str)
 
-            print("\npopulate prediction data...")
-            self.populate_prediction_data()
-            print("finished")
+        return jobs, designs, archs
 
-            print("\npredict and partition nets in search space...")
-            self.predict_nodes()
-            self.check_leaf_bags()
-            print("finished")
-            self.print_tree()
-            # # sampling nodes
-            # # nodes = [0, 1, 2, 3, 8, 12, 13, 14, 15]
-            # nodes = [0, 3, 12, 15]
-            # sampling_node(self, nodes, dataset, self.ITERATION)
+    def evaluate_jobs_after(self, results, jobs, archs):
+        for i in range(len(jobs)):
+            acc = results[i]
+            job = jobs[i]                    
+            job_str = json.dumps(job)
+            arch_str = archs[i]
+            self.DISPATCHED_JOB[job_str] = acc
+            # exploration = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
+            if self.explorations['phase'] == 0:
+                zero_counts = [job[i].count(0) for i in range(len(job))]
+                gate_reduced = np.sum(zero_counts)
+            else:
+                zero_counts = [(job[i].count(job[i][0])-1) for i in range(len(job))]
+                gate_reduced = np.sum(zero_counts)
+            p_acc = acc + gate_reduced * self.explorations['rate_decay'][self.stages]
+            # p_acc = acc
+            self.samples[arch_str] = p_acc
+            self.samples_compact[job_str] = p_acc
+            sample_node = 'random'
+            with open('results.csv', 'a+', newline='') as res:
+                writer = csv.writer(res)
+                metrics = acc                        
+                num_id = len(self.samples)
+                writer.writerow([num_id, job_str, sample_node, metrics, p_acc])
+            self.mae_list.append(acc)
+                        
+            # if job_str in dataset and self.explorations['iteration'] == 0:
+            #     report = {'mae': dataset.get(job_str)}
+            #     # print(report)
+            # self.explorations[job_str]   = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
+            
 
-            random.seed(self.ITERATION)
-            for i in range(0, 10):
-                # select
-                target_bin   = self.select()
-                if self.ROOT.base_code == None:
-                    qubits = None
-                else:
-                    qubits = [code[0] for code in self.ROOT.base_code]
-                sampled_arch = target_bin.sample_arch(qubits)                
-                # NOTED: the sampled arch can be None 
-                if sampled_arch is not None:                    
-                    # push the arch into task queue
-                    if json.dumps(sampled_arch) not in self.DISPATCHED_JOB:
-                        self.TASK_QUEUE.append(sampled_arch)
-                        # self.search_space.remove(sampled_arch)
-                        self.sample_nodes.append(target_bin.id-7)
-                else:
-                    # trail 1: pick a network from the left leaf
-                    for n in self.nodes:
-                        if n.is_leaf == True:
-                            sampled_arch = n.sample_arch(qubits)
-                            if sampled_arch is not None:
-                                print("\nselected node" + str(n.id-7) + " in leaf layer")                                
-                                # print("sampled arch:", sampled_arch)
-                                if json.dumps(sampled_arch) not in self.DISPATCHED_JOB:
-                                    self.TASK_QUEUE.append(sampled_arch)
-                                    # self.search_space.remove(sampled_arch)
-                                    self.sample_nodes.append(n.id-7)
-                                    break
-                            else:
-                                continue
-                if type(sampled_arch[0]) == type([]):
-                    arch = sampled_arch[-1]
-                else:
-                    arch = sampled_arch
-                self.search_space.remove(arch)                          
+    def early_search(self, iter):       
+        # save current state
+        self.ITERATION = iter
+        if self.ITERATION > 0:
+            self.dump_all_states(self.sampling_num + len(self.samples))
+        print("\niteration:", self.ITERATION)
 
-            self.ITERATION += 1
+        period = 3
+
+        if (self.ITERATION % period == 0): 
+            if self.ITERATION == 0:
+                self.init_train()                    
+            else:
+                self.re_init_tree()                                        
+
+        # evaluate jobs:
+        print("\nevaluate jobs...")
+        self.mae_list = []
+        jobs, designs, archs = self.evaluate_jobs_before()
+
+        return jobs, designs, archs
+    
+    def late_search(self, jobs, results, archs):
+        
+        self.evaluate_jobs_after(results, jobs, archs)    
+        print("\nfinished all jobs in task queue")            
+
+        # assemble the training data:
+        print("\npopulate training data...")
+        self.populate_training_data()
+        print("finished")
+
+        # training the tree
+        print("\ntrain classifiers in nodes...")
+        if torch.cuda.is_available():
+            print("using cuda device")
+        else:
+            print("using cpu device")
+        start = time.time()
+        self.train_nodes()
+        print("finished")
+        end = time.time()
+        print("Running time: %s seconds" % (end - start))
+       
+        # clear the data in nodes
+        self.reset_node_data()                      
+
+        # if self.ITERATION % period == 0:
+        #     if np.mean(self.mae_list) > self.acc_mean:
+        #         self.acc_mean = np.mean(self.mae_list)
+        #     else:
+        #         self.acc_mean -= 0.003
+        #         self.ITERATION += period
+        #         continue
+
+        print("\npopulate prediction data...")
+        self.populate_prediction_data()
+        print("finished")
+        
+        print("\npredict and partition nets in search space...")
+        self.predict_nodes()        
+        self.check_leaf_bags()
+        print("finished")
+        self.print_tree()
+        # # sampling nodes
+        # # nodes = [0, 1, 2, 3, 8, 12, 13, 14, 15]
+        # nodes = [0, 3, 12, 15]
+        # sampling_node(self, nodes, dataset, self.ITERATION)
+        
+        random.seed(self.ITERATION)
+        for i in range(0, 10):
+            # select
+            target_bin   = self.select()
+            if self.ROOT.base_code == None:
+                qubits = None
+            else:
+                qubits = [code[0] for code in self.ROOT.base_code]
+            sampled_arch = target_bin.sample_arch(qubits)                
+            # NOTED: the sampled arch can be None 
+            if sampled_arch is not None:                    
+                # push the arch into task queue
+                if json.dumps(sampled_arch) not in self.DISPATCHED_JOB:
+                    self.TASK_QUEUE.append(sampled_arch)
+                    # self.search_space.remove(sampled_arch)
+                    self.sample_nodes.append(target_bin.id-7)
+            else:
+                # trail 1: pick a network from the left leaf
+                for n in self.nodes:
+                    if n.is_leaf == True:
+                        sampled_arch = n.sample_arch(qubits)
+                        if sampled_arch is not None:
+                            print("\nselected node" + str(n.id-7) + " in leaf layer")                                
+                            # print("sampled arch:", sampled_arch)
+                            if json.dumps(sampled_arch) not in self.DISPATCHED_JOB:
+                                self.TASK_QUEUE.append(sampled_arch)
+                                # self.search_space.remove(sampled_arch)
+                                self.sample_nodes.append(n.id-7)
+                                break
+                        else:
+                            continue
+            if type(sampled_arch[0]) == type([]):
+                arch = sampled_arch[-1]
+            else:
+                arch = sampled_arch
+            self.search_space.remove(arch)                          
+
+
+def Scheme_mp(design, weight, i, q=None):
+    step = len(design)
+    for j in range(step):
+        _, report = Scheme(design[j], weight, verbs=1)
+        q.put([i*step+j, report['mae']])
+
+def create_agent(node=None):
+    if files:
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(state_path, x)))
+        node_path = os.path.join(state_path, files[-1])
+        if node: node_path = node        
+        with open(node_path, 'rb') as json_data:
+            agent = pickle.load(json_data)
+        print("\nresume searching,", agent.ITERATION, "iterations completed before")        
+        print("=====>loads:", len(agent.samples), "samples")        
+        print("=====>loads:", len(agent.TASK_QUEUE), 'tasks')
+    else:
+        agent = MCTS(search_space_single, 4, arch_code_len)
+        # arch = empty_arch(4, 4)
+        single = random.sample(search_space_single, 2)
+        enta = random.sample(search_space_enta, 2)
+        agent.set_init_arch([single, enta])
+    return agent
 
 
 if __name__ == '__main__':
@@ -418,54 +455,25 @@ if __name__ == '__main__':
     np.random.seed(42)
     torch.random.manual_seed(42)
 
-    def empty_arch(n_layers, n_qubits):            
-        single = [[i] + [0]* (2*n_layers) for i in range(1,n_qubits+1)]
-        enta = [[i] + [i]*n_layers for i in range(1,n_qubits+1)]
-        return [single, enta]
+    mp.set_start_method('spawn')
 
-    with open('search_space_mnist_single', 'rb') as file:
-        search_space = pickle.load(file)
-    
-    arch_code_len = len(search_space[0])
-    print("\nthe length of base architecture codes:", arch_code_len)
-    print("total architectures:", len(search_space))
+    # node_path = 'states/mcts_agent_60'
+    agent = create_agent()
+    num_processes = 5    
 
-    with open('data/mnist_dataset_single', 'rb') as file:
-        dataset = pickle.load(file)
-      
-    dataset = {}
-
-    if os.path.isfile('results.csv') == False:
-        with open('results.csv', 'w+', newline='') as res:
-            writer = csv.writer(res)
-            writer.writerow(['sample_id', 'arch_code', 'sample_node', 'ACC', 'p_ACC'])
-
-    if os.path.isfile('results_30_epoch.csv') == False:
-        with open('results_30_epoch.csv', 'w+', newline='') as res:
-            writer = csv.writer(res)
-            writer.writerow(['iteration', 'arch_code', 'ACC'])
-
-    # agent = MCTS(search_space, 5, arch_code_len)
-    # agent.search()
-
-    state_path = 'states'
-    if os.path.exists(state_path) == False:
-        os.makedirs(state_path)
-    files = os.listdir(state_path)
-    if files:
-        files.sort(key=lambda x: os.path.getmtime(os.path.join(state_path, x)))
-        node_path = os.path.join(state_path, files[-1])
-        # node_path = 'states/mcts_agent_50'
-        with open(node_path, 'rb') as json_data:
-            agent = pickle.load(json_data)
-        print("\nresume searching,", agent.ITERATION, "iterations completed before")
-        print("=====>loads:", len(agent.nodes), "nodes")
-        print("=====>loads:", len(agent.samples), "samples")
-        print("=====>loads:", len(agent.DISPATCHED_JOB), "dispatched jobs")
-        print("=====>loads:", len(agent.TASK_QUEUE), "task_queue jobs from node:", agent.sample_nodes[0])        
-        agent.search()
-    else:
-        agent = MCTS(search_space, 4, arch_code_len)
-        arch = empty_arch(4, 4)
-        agent.set_init_arch(arch)
-        agent.search()
+    for iter in range(101):
+        jobs, designs, archs = agent.early_search(iter)        
+        results = {}
+        n_jobs = len(jobs)
+        step = n_jobs // num_processes
+        res = n_jobs % num_processes
+        with Manager() as manager:
+            q = manager.Queue()
+            with mp.Pool(processes = num_processes) as pool:        
+                pool.starmap(Scheme_mp, [(designs[i*step : (i+1)*step], agent.weight, i, q) for i in range(num_processes)])            
+                pool.starmap(Scheme_mp, [(designs[n_jobs-i-1 : n_jobs-i], agent.weight, n_jobs-i-1, q) for i in range(res)])
+            while not q.empty():
+                [i, acc] = q.get()
+                results[i] = acc
+        agent.late_search(jobs, results, archs)
+        

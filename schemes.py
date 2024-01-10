@@ -85,7 +85,7 @@ def evaluate(model, data_loader, args):
     metrics = accuracy    
     return metrics
 
-def Scheme(design, weight='base', epochs=None):
+def Scheme(design, weight='base', epochs=None, verbs=None):
     random.seed(42)
     np.random.seed(42)
     torch.random.manual_seed(42)
@@ -93,17 +93,17 @@ def Scheme(design, weight='base', epochs=None):
     args = Arguments()
     if epochs == None:
         epochs = args.epochs
-    if torch.cuda.is_available() and args.device == 'cuda':
-        print("using cuda device")
-    else:
-        print("using cpu device")
+    # if torch.cuda.is_available() and args.device == 'cuda':
+    #     print("using cuda device")
+    # else:
+    #     print("using cpu device")
     train_loader, val_loader, test_loader = MNISTDataLoaders(args)
     model = QNet(args, design).to(args.device)
     if weight != 'init':
         if weight != 'base':
             model.load_state_dict(weight, strict= False)
         else:            
-            model.load_state_dict(torch.load('weights/base_fashion_swap'))
+            model.load_state_dict(torch.load('weights/base_fashion'))
             # model.load_state_dict(torch.load('weights/mnist_best_3'))
     criterion = nn.NLLLoss()    
    
@@ -125,16 +125,15 @@ def Scheme(design, weight='base', epochs=None):
         val_loss = 0.5 *(val_loss+train_loss[-1])
         if val_loss > best_val_loss:
             best_val_loss = val_loss
-            print(epoch, train_loss, val_loss_list[-1], metrics, 'saving model')
+            if not verbs: print(epoch, train_loss, val_loss_list[-1], metrics, 'saving model')
             best_model = copy.deepcopy(model)           
         else:
-            print(epoch, train_loss, val_loss_list[-1], metrics)
-        
-    end = time.time()
-    print("Running time: %s seconds" % (end - start))
+            if not verbs: print(epoch, train_loss, val_loss_list[-1], metrics)        
+    end = time.time()    
     # best_model = model
     metrics = evaluate(best_model, test_loader, args)
     display(metrics)
+    print("Running time: %s seconds" % (end - start))
     report = {'train_loss_list': train_loss_list, 'val_loss_list': val_loss_list,
               'best_val_loss': best_val_loss, 'mae': metrics}
     
