@@ -459,9 +459,10 @@ if __name__ == '__main__':
 
     # node_path = 'states/mcts_agent_60'
     agent = create_agent()
+    ITERATION = agent.ITERATION
     num_processes = 5    
 
-    for iter in range(101):
+    for iter in range(ITERATION, 101):
         jobs, designs, archs = agent.early_search(iter)        
         results = {}
         n_jobs = len(jobs)
