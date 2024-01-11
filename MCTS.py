@@ -259,10 +259,10 @@ class MCTS:
 
 
     def evaluate_jobs_before(self):
-
         jobs = []
         designs =[]        
         archs = []
+        nodes = []
         while len(self.TASK_QUEUE) > 0:            
            
             job = self.TASK_QUEUE.pop()
@@ -282,10 +282,11 @@ class MCTS:
             jobs.append(job)
             designs.append(design)
             archs.append(arch_str)
+            nodes.append(sample_node)
 
-        return jobs, designs, archs
+        return jobs, designs, archs, nodes
 
-    def evaluate_jobs_after(self, results, jobs, archs):
+    def evaluate_jobs_after(self, results, jobs, archs, nodes):
         for i in range(len(jobs)):
             acc = results[i]
             job = jobs[i]                    
@@ -299,11 +300,11 @@ class MCTS:
             else:
                 zero_counts = [(job[i].count(job[i][0])-1) for i in range(len(job))]
                 gate_reduced = np.sum(zero_counts)
-            p_acc = acc + gate_reduced * self.explorations['rate_decay'][self.stages]
-            # p_acc = acc
+            # p_acc = acc + gate_reduced * self.explorations['rate_decay'][self.stages]
+            p_acc = acc
             self.samples[arch_str] = p_acc
             self.samples_compact[job_str] = p_acc
-            sample_node = 'random'
+            sample_node = nodes[i]
             with open('results.csv', 'a+', newline='') as res:
                 writer = csv.writer(res)
                 metrics = acc                        
@@ -335,13 +336,13 @@ class MCTS:
         # evaluate jobs:
         print("\nevaluate jobs...")
         self.mae_list = []
-        jobs, designs, archs = self.evaluate_jobs_before()
+        jobs, designs, archs, nodes = self.evaluate_jobs_before()
 
-        return jobs, designs, archs
+        return jobs, designs, archs, nodes
     
-    def late_search(self, jobs, results, archs):
+    def late_search(self, jobs, results, archs, nodes):
         
-        self.evaluate_jobs_after(results, jobs, archs)    
+        self.evaluate_jobs_after(results, jobs, archs, nodes)    
         print("\nfinished all jobs in task queue")            
 
         # assemble the training data:
@@ -446,10 +447,16 @@ def create_agent(node=None):
         single = random.sample(search_space_single, 2)
         enta = random.sample(search_space_enta, 2)
         agent.set_init_arch([single, enta])
+        with open('results_30_epoch.csv', 'a+', newline='') as res:
+            writer = csv.writer(res)
+            writer.writerow([0, [single, enta]])
     return agent
 
 
 if __name__ == '__main__':
+    # random start
+    agent = create_agent()
+
      # set random seed
     random.seed(42)
     np.random.seed(42)
@@ -458,12 +465,12 @@ if __name__ == '__main__':
     mp.set_start_method('spawn')
 
     # node_path = 'states/mcts_agent_60'
-    agent = create_agent()
+    # agent = create_agent()
     ITERATION = agent.ITERATION
     num_processes = 5    
 
     for iter in range(ITERATION, 101):
-        jobs, designs, archs = agent.early_search(iter)        
+        jobs, designs, archs, nodes = agent.early_search(iter)        
         results = {}
         n_jobs = len(jobs)
         step = n_jobs // num_processes
@@ -476,5 +483,5 @@ if __name__ == '__main__':
             while not q.empty():
                 [i, acc] = q.get()
                 results[i] = acc
-        agent.late_search(jobs, results, archs)
+        agent.late_search(jobs, results, archs, nodes)
         
