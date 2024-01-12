@@ -186,6 +186,7 @@ data/MNIST/
 data/FashionMNIST/
 backup/
 weights/fashion
+weights/mnist
 
 FusionModel_bak.py
 schemes_backup.py

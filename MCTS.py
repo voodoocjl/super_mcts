@@ -62,7 +62,7 @@ class MCTS:
         self.ROOT = self.nodes[0]
         self.CURT = self.ROOT
         self.weight = 'init'
-        self.explorations = {'phase': 0, 'iteration': 0, 'single':None, 'enta': None, 'rate': 0.006, 'rate_decay': [0.006, 0.004, 0.002, 0]}
+        self.explorations = {'phase': 0, 'iteration': 0, 'single':None, 'enta': None, 'rate': [0.001, 0.002, 0.003], 'rate_decay': [0.006, 0.004, 0.002, 0]}
 
     def set_init_arch(self, arch):
         single = arch[0]
@@ -124,7 +124,7 @@ class MCTS:
         import datetime        
         current_time = datetime.datetime.now()
         formatted_time = current_time.strftime('%m-%d-%H')
-        torch.save(best_model.state_dict(), 'weights/fashion/weight_{}_{}'.format(self.ITERATION, formatted_time))
+        torch.save(best_model.state_dict(), 'weights/mnist/weight_{}_{}'.format(self.ITERATION, formatted_time))
 
         with open('results_30_epoch.csv', 'a+', newline='') as res:
             writer = csv.writer(res)
@@ -153,7 +153,7 @@ class MCTS:
             self.init_train()
             self.stages = 0
         else:
-            for i in range(0, 30):
+            for i in range(0, 10):
                 net = random.choice(self.search_space)
                 while net[0] in qubits:
                     net = random.choice(self.search_space)
@@ -277,11 +277,10 @@ class MCTS:
                 enta = self.insert_job(self.explorations['enta'], job)
             design = translator(single, enta, 'full')
             arch = cir_to_matrix(single, enta)
-            arch_str = json.dumps(np.int8(arch).tolist())
-
+            
             jobs.append(job)
             designs.append(design)
-            archs.append(arch_str)
+            archs.append(arch)
             nodes.append(sample_node)
 
         return jobs, designs, archs, nodes
@@ -291,17 +290,20 @@ class MCTS:
             acc = results[i]
             job = jobs[i]                    
             job_str = json.dumps(job)
-            arch_str = archs[i]
+            arch = archs[i]
+            arch_str = json.dumps(np.int8(arch).tolist())
+            
             self.DISPATCHED_JOB[job_str] = acc
             # exploration = ((abs(np.subtract(self.topology[job[0]], job))) % 2.4).round().sum()
-            if self.explorations['phase'] == 0:
-                zero_counts = [job[i].count(0) for i in range(len(job))]
-                gate_reduced = np.sum(zero_counts)
-            else:
-                zero_counts = [(job[i].count(job[i][0])-1) for i in range(len(job))]
-                gate_reduced = np.sum(zero_counts)
-            # p_acc = acc + gate_reduced * self.explorations['rate_decay'][self.stages]
-            p_acc = acc
+            # if self.explorations['phase'] == 0:
+            #     zero_counts = [job[i].count(0) for i in range(len(job))]
+            #     gate_reduced = np.sum(zero_counts)
+            # else:
+            #     zero_counts = [(job[i].count(job[i][0])-1) for i in range(len(job))]
+            #     gate_reduced = np.sum(zero_counts)
+            exploration, gate_numbers = count_gates(arch, self.explorations['rate'])
+            p_acc = acc - exploration
+            # p_acc = acc
             self.samples[arch_str] = p_acc
             self.samples_compact[job_str] = p_acc
             sample_node = nodes[i]
@@ -329,9 +331,11 @@ class MCTS:
 
         if (self.ITERATION % period == 0): 
             if self.ITERATION == 0:
-                self.init_train()                    
+                self.init_train(10)                    
             else:
-                self.re_init_tree()                                        
+                self.re_init_tree()
+        else:
+            self.init_train(10)                                        
 
         # evaluate jobs:
         print("\nevaluate jobs...")
@@ -431,6 +435,31 @@ def Scheme_mp(design, weight, i, q=None):
         _, report = Scheme(design[j], weight, verbs=1)
         q.put([i*step+j, report['mae']])
 
+def count_gates(arch, coeff=None):
+    # x = [item for i in [2,3,4,1] for item in [1,1,i]]
+    x = [[0, 0, i]*4 for i in range(1,5)]
+    x = np.transpose(x, (1,0))
+    x = np.sign(abs(x-arch))
+    if coeff != None:
+        coeff = np.reshape(coeff * 4, (-1,1))
+        y = (x * coeff).sum()
+    else:
+        y = 0
+    stat = {}
+    stat['uploading'] = x[[3*i for i in range(4)]].sum()
+    stat['single'] = x[[3*i+1 for i in range(4)]].sum()
+    stat['enta'] = x[[3*i+2 for i in range(4)]].sum()
+    return y, stat
+
+def analysis_result(samples, numbers):
+    gate_stat = []    
+    sorted_changes = [k for k, v in sorted(samples.items(), key=lambda x: x[1], reverse=True)]
+    for i in range(numbers):
+        _, gates = count_gates(eval(sorted_changes[i]))
+        gate_stat.append(list(gates.values()))
+    mean = np.mean(gate_stat, axis=0)
+    return mean
+
 def create_agent(node=None):
     if files:
         files.sort(key=lambda x: os.path.getmtime(os.path.join(state_path, x)))
@@ -443,19 +472,31 @@ def create_agent(node=None):
         print("=====>loads:", len(agent.TASK_QUEUE), 'tasks')
     else:
         agent = MCTS(search_space_single, 4, arch_code_len)
-        # arch = empty_arch(4, 4)
+        empty = empty_arch(4, 4)
+
         single = random.sample(search_space_single, 2)
         enta = random.sample(search_space_enta, 2)
+        single = agent.insert_job(empty[0], single)
+        enta = agent.insert_job(empty[1], enta)
+        # # strong entanglement
+        # single = [[i]+[1]*8 for i in range(1,5)]
+        # enta = [[i]+[i+1]*4 for i in range(1,4)]+[[4]+[1]*4]
+        print(single,enta)
+        design = translator(single, enta, 'full')
+        best_model, report = Scheme(design, 'init', 30)
+        # torch.save(best_model.state_dict(), 'weights/base_weight')
+        agent.weight = best_model.state_dict()
+
         agent.set_init_arch([single, enta])
         with open('results_30_epoch.csv', 'a+', newline='') as res:
             writer = csv.writer(res)
-            writer.writerow([0, [single, enta]])
+            writer.writerow([0, [single, enta], report['mae']])            
     return agent
 
 
 if __name__ == '__main__':
     # random start
-    agent = create_agent()
+    # agent = create_agent()
 
      # set random seed
     random.seed(42)
@@ -465,11 +506,12 @@ if __name__ == '__main__':
     mp.set_start_method('spawn')
 
     # node_path = 'states/mcts_agent_60'
-    # agent = create_agent()
+    agent = create_agent()
     ITERATION = agent.ITERATION
-    num_processes = 5    
+    num_processes = 5
+    # print('Gate numbers of top {}: {}'.format(20, analysis_result(agent.samples, 20)))
 
-    for iter in range(ITERATION, 101):
+    for iter in range(ITERATION, 52):
         jobs, designs, archs, nodes = agent.early_search(iter)        
         results = {}
         n_jobs = len(jobs)
@@ -483,5 +525,8 @@ if __name__ == '__main__':
             while not q.empty():
                 [i, acc] = q.get()
                 results[i] = acc
-        agent.late_search(jobs, results, archs, nodes)
+        agent.evaluate_jobs_after(results, jobs, archs, nodes)
+
+    rank = 20
+    print('Gate numbers of top {}: {}'.format(rank, analysis_result(agent.samples, rank)))
         

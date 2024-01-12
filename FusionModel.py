@@ -37,7 +37,7 @@ def prune_single(change_code):
         single_dict['current_qubit'] = change_qbit
         j = 0
         for i in change_qbit:            
-            single_dict['qubit_{}'.format(i)] = change_code[:, 1:][j].reshape(2, -1)
+            single_dict['qubit_{}'.format(i)] = change_code[:, 1:][j].reshape(-1, 2).transpose(1,0)
             j += 1
     return single_dict
 
@@ -72,7 +72,7 @@ def translator(single_code, enta_code, trainable='partial', base_code=args.base_
 def cir_to_matrix(x=None, y=None, qubits=args.n_qubits,layers=args.n_layers):
     entangle = gen_arch(y)
     entangle = np.array([entangle]).reshape(layers, qubits).transpose(1,0)
-    single = np.ones((qubits, 2*layers))   
+    single = np.ones((qubits, 2*layers))
     # [[1,1,1,1]
     #  [2,2,2,2]
     #  [3,3,3,3]

@@ -103,7 +103,7 @@ def Scheme(design, weight='base', epochs=None, verbs=None):
         if weight != 'base':
             model.load_state_dict(weight, strict= False)
         else:            
-            model.load_state_dict(torch.load('weights/base_fashion'))
+            model.load_state_dict(torch.load('weights/mnist_4_layers_reuploading'))
             # model.load_state_dict(torch.load('weights/mnist_best_3'))
     criterion = nn.NLLLoss()    
    
