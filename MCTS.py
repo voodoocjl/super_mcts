@@ -335,7 +335,11 @@ class MCTS:
             else:
                 self.re_init_tree()
         else:
-            self.init_train(10)                                        
+            self.init_train(10)
+            for i in range(len(self.TASK_QUEUE)):
+                net = self.ROOT.base_code.copy()
+                net.append(self.TASK_QUEUE[i])
+                self.TASK_QUEUE[i] = net 
 
         # evaluate jobs:
         print("\nevaluate jobs...")
@@ -474,13 +478,13 @@ def create_agent(node=None):
         agent = MCTS(search_space_single, 4, arch_code_len)
         empty = empty_arch(4, 4)
 
-        single = random.sample(search_space_single, 2)
-        enta = random.sample(search_space_enta, 2)
-        single = agent.insert_job(empty[0], single)
-        enta = agent.insert_job(empty[1], enta)
+        # single = random.sample(search_space_single, 2)
+        # enta = random.sample(search_space_enta, 2)
+        # single = agent.insert_job(empty[0], single)
+        # enta = agent.insert_job(empty[1], enta)
         # # strong entanglement
-        # single = [[i]+[1]*8 for i in range(1,5)]
-        # enta = [[i]+[i+1]*4 for i in range(1,4)]+[[4]+[1]*4]
+        single = [[i]+[1]*8 for i in range(1,5)]
+        enta = [[i]+[i+1]*4 for i in range(1,4)]+[[4]+[1]*4]
         print(single,enta)
         design = translator(single, enta, 'full')
         best_model, report = Scheme(design, 'init', 30)
@@ -505,13 +509,14 @@ if __name__ == '__main__':
 
     mp.set_start_method('spawn')
 
-    # node_path = 'states/mcts_agent_60'
-    agent = create_agent()
+    # saved = 'states/mcts_agent_88'
+    saved = None
+    agent = create_agent(saved)
     ITERATION = agent.ITERATION
     num_processes = 5
     # print('Gate numbers of top {}: {}'.format(20, analysis_result(agent.samples, 20)))
 
-    for iter in range(ITERATION, 52):
+    for iter in range(ITERATION, 55):
         jobs, designs, archs, nodes = agent.early_search(iter)        
         results = {}
         n_jobs = len(jobs)
