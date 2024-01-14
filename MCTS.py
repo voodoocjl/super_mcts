@@ -27,6 +27,7 @@ class MCTS:
         self.Cp             = 0.2
         self.nodes          = []
         self.samples        = {}
+        self.samples_true        = {}
         self.samples_compact = {}
         self.TASK_QUEUE     = []
         self.DISPATCHED_JOB = {}
@@ -302,9 +303,10 @@ class MCTS:
             #     zero_counts = [(job[i].count(job[i][0])-1) for i in range(len(job))]
             #     gate_reduced = np.sum(zero_counts)
             exploration, gate_numbers = count_gates(arch, self.explorations['rate'])
-            p_acc = acc - exploration
-            # p_acc = acc
+            # p_acc = acc - exploration
+            p_acc = acc
             self.samples[arch_str] = p_acc
+            self.samples_true[arch_str] = acc
             self.samples_compact[job_str] = p_acc
             sample_node = nodes[i]
             with open('results.csv', 'a+', newline='') as res:
@@ -336,10 +338,11 @@ class MCTS:
                 self.re_init_tree()
         else:
             self.init_train(10)
-            for i in range(len(self.TASK_QUEUE)):
-                net = self.ROOT.base_code.copy()
-                net.append(self.TASK_QUEUE[i])
-                self.TASK_QUEUE[i] = net 
+            if self.ROOT.base_code != None:
+                for i in range(len(self.TASK_QUEUE)):
+                    net = self.ROOT.base_code.copy()
+                    net.append(self.TASK_QUEUE[i])
+                    self.TASK_QUEUE[i] = net 
 
         # evaluate jobs:
         print("\nevaluate jobs...")
