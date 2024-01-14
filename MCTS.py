@@ -27,6 +27,7 @@ class MCTS:
         self.Cp             = 0.2
         self.nodes          = []
         self.samples        = {}
+        self.samples_true   = {}
         self.samples_compact = {}
         self.TASK_QUEUE     = []
         self.DISPATCHED_JOB = {}
@@ -40,7 +41,7 @@ class MCTS:
         self.sample_nodes   = []
         self.stages         = 0
         self.sampling_num   = 0   
-        self.acc_mean       = 0           
+        self.acc_mean       = 0
 
         self.tree_height    = tree_height
 
@@ -62,7 +63,8 @@ class MCTS:
         self.ROOT = self.nodes[0]
         self.CURT = self.ROOT
         self.weight = 'init'
-        self.explorations = {'phase': 0, 'iteration': 0, 'single':None, 'enta': None, 'rate': [0.001, 0.002, 0.003], 'rate_decay': [0.006, 0.004, 0.002, 0]}
+        # self.explorations = {'phase': 0, 'iteration': 0, 'single':None, 'enta': None, 'rate': [0.001, 0.004, 0.006], 'rate_decay': [0.006, 0.004, 0.002, 0]}
+        self.explorations = {'phase': 0, 'iteration': 0, 'single':None, 'enta': None, 'rate': [0.001, 0.004, 0.006]}
 
     def set_init_arch(self, arch):
         single = arch[0]
@@ -305,6 +307,7 @@ class MCTS:
             p_acc = acc - exploration
             # p_acc = acc
             self.samples[arch_str] = p_acc
+            self.samples_true[arch_str] = acc
             self.samples_compact[job_str] = p_acc
             sample_node = nodes[i]
             with open('results.csv', 'a+', newline='') as res:
@@ -449,10 +452,10 @@ def count_gates(arch, coeff=None):
     stat['enta'] = x[[3*i+2 for i in range(4)]].sum()
     return y, stat
 
-def analysis_result(samples, numbers):
+def analysis_result(samples, ranks):
     gate_stat = []    
     sorted_changes = [k for k, v in sorted(samples.items(), key=lambda x: x[1], reverse=True)]
-    for i in range(numbers):
+    for i in range(ranks):
         _, gates = count_gates(eval(sorted_changes[i]))
         gate_stat.append(list(gates.values()))
     mean = np.mean(gate_stat, axis=0)
@@ -479,7 +482,7 @@ def create_agent(node=None):
         # # strong entanglement
         # single = [[i]+[1]*8 for i in range(1,5)]
         # enta = [[i]+[i+1]*4 for i in range(1,4)]+[[4]+[1]*4]
-        print(single,enta)
+        # print(single,enta)
         design = translator(single, enta, 'full')
         best_model, report = Scheme(design, 'init', 30)
         # torch.save(best_model.state_dict(), 'weights/base_weight')
@@ -503,13 +506,14 @@ if __name__ == '__main__':
 
     mp.set_start_method('spawn')
 
-    node_path = 'states/mcts_agent_1366'
-    agent = create_agent(node_path)
+    # saved = 'states/mcts_agent_695'
+    saved = None
+    agent = create_agent(saved)
     ITERATION = agent.ITERATION
     num_processes = 5    
-    print('Gate numbers of top {}: {}'.format(20, analysis_result(agent.samples, 20)))
+    # print('Gate numbers of top {}: {}'.format(20, analysis_result(agent.samples, 20)))
 
-    for iter in range(ITERATION, 101):
+    for iter in range(ITERATION, 55):
         jobs, designs, archs, nodes = agent.early_search(iter)        
         results = {}
         n_jobs = len(jobs)
@@ -527,6 +531,6 @@ if __name__ == '__main__':
 
     # n_gate = analysis_result(agent.samples, 20)
     rank = 20
-    print('Gate numbers of top {}: {}'.format(rank, analysis_result(agent.samples, rank)))
+    print('Gate numbers of top {}: {}'.format(rank, analysis_result(agent.samples_true, rank)))
     
         
